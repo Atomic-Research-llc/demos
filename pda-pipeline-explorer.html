@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F-16 PDA Tool — Data Pipeline Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep: #060d06;
+    --bg-panel: #0a140a;
+    --bg-surface: #0f1a0f;
+    --bg-hover: #142014;
+    --border: #1a3a1a;
+    --border-bright: #2a5a2a;
+    --green-bright: #00ff41;
+    --green-mid: #33cc33;
+    --green-dim: #1a6b1a;
+    --green-faint: #0d3a0d;
+    --cyan: #00ccff;
+    --amber: #ffcc00;
+    --red: #ff4444;
+    --text: #b0d4b0;
+    --text-dim: #5a8a5a;
+    --font-mono: 'Courier New', 'Consolas', monospace;
+    --font-ui: system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    z-index: 9999;
+  }
+
+  /* ─── HEADER ─── */
+  #header {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-bright);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #header h1 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--green-bright);
+    text-shadow: 0 0 10px rgba(0,255,65,0.3);
+    font-family: var(--font-mono);
+  }
+  #header .notional {
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing: 2px;
+    border: 1px solid var(--amber);
+    padding: 2px 8px;
+    opacity: 0.8;
+  }
+
+  /* ─── PIPELINE FLOW ─── */
+  #pipeline-flow {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .pipeline-stage {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    cursor: pointer;
+  }
+  .pipeline-node {
+    padding: 8px 18px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    position: relative;
+    white-space: nowrap;
+  }
+  .pipeline-node:hover {
+    border-color: var(--green-dim);
+    color: var(--text);
+  }
+  .pipeline-node.active {
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+    background: var(--green-faint);
+    text-shadow: 0 0 8px rgba(0,255,65,0.4);
+    box-shadow: 0 0 12px rgba(0,255,65,0.1);
+  }
+  .pipeline-node .stage-num {
+    font-size: 9px;
+    color: var(--text-dim);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .pipeline-node.active .stage-num { color: var(--green-mid); }
+  .pipeline-arrow {
+    color: var(--green-dim);
+    font-size: 18px;
+    padding: 0 6px;
+    user-select: none;
+  }
+  .pipeline-arrow.active { color: var(--green-bright); text-shadow: 0 0 6px rgba(0,255,65,0.4); }
+
+  /* ─── MAIN LAYOUT ─── */
+  #main {
+    display: flex;
+    height: calc(100vh - 200px);
+    min-height: 500px;
+  }
+
+  /* ─── SIDEBAR ─── */
+  #sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .ctrl-section {
+    margin-bottom: 16px;
+  }
+  .ctrl-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--green-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .ctrl-btn {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .ctrl-btn:hover {
+    border-color: var(--green-dim);
+    background: var(--bg-hover);
+  }
+  .ctrl-btn.active {
+    border-color: var(--green-bright);
+    color: var(--green-bright);
+    background: var(--green-faint);
+  }
+  .ctrl-btn .btn-sub {
+    font-size: 9px;
+    color: var(--text-dim);
+    display: block;
+    margin-top: 1px;
+  }
+  .ctrl-btn.active .btn-sub { color: var(--green-dim); }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .slider-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--green-bright);
+    height: 4px;
+  }
+  .slider-val {
+    font-size: 12px;
+    color: var(--green-bright);
+    min-width: 40px;
+    text-align: right;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+  }
+  .toggle {
+    width: 36px;
+    height: 18px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+  .toggle.on {
+    border-color: var(--green-bright);
+    background: var(--green-faint);
+  }
+  .toggle.on::after {
+    left: 20px;
+    background: var(--green-bright);
+  }
+  .toggle-label {
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  /* ─── CONTENT ─── */
+  #content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+
+  .content-title {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: var(--green-bright);
+    margin-bottom: 4px;
+    text-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+  .content-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    line-height: 1.6;
+    max-width: 800px;
+  }
+
+  /* Data table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-bottom: 16px;
+  }
+  .data-table th {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: left;
+    color: var(--green-dim);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .data-table td {
+    border: 1px solid var(--border);
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+  .data-table tr:hover td {
+    background: var(--bg-hover);
+  }
+  .data-table tr.highlight td {
+    background: rgba(0,255,65,0.05);
+    border-color: var(--green-dim);
+  }
+  .hex { color: var(--cyan); }
+  .decoded { color: var(--green-bright); }
+  .pass { color: var(--green-bright); }
+  .fail { color: var(--red); }
+  .warn { color: var(--amber); }
+  .dim { color: var(--text-dim); }
+
+  /* Bit field visualization */
+  .bitfield-viz {
+    margin: 16px 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+    border-radius: 2px;
+  }
+  .bitfield-title {
+    font-size: 11px;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .bitfield-row {
+    display: flex;
+    margin-bottom: 2px;
+  }
+  .bit-cell {
+    width: 32px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .bit-cell.field-a { background: rgba(0,204,255,0.12); color: var(--cyan); border-color: rgba(0,204,255,0.3); }
+  .bit-cell.field-b { background: rgba(0,255,65,0.08); color: var(--green-bright); border-color: rgba(0,255,65,0.25); }
+  .bit-cell.field-c { background: rgba(255,204,0,0.08); color: var(--amber); border-color: rgba(255,204,0,0.25); }
+  .bit-cell.field-d { background: rgba(255,68,68,0.08); color: var(--red); border-color: rgba(255,68,68,0.2); }
+  .bit-num {
+    display: flex;
+    margin-bottom: 4px;
+  }
+  .bit-num span {
+    width: 32px;
+    text-align: center;
+    font-size: 8px;
+    color: var(--text-dim);
+  }
+
+  .field-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .field-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .field-swatch {
+    width: 12px;
+    height: 12px;
+    border: 1px solid;
+  }
+
+  /* Decoding detail */
+  .decode-chain {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0;
+    flex-wrap: wrap;
+  }
+  .decode-step {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    font-size: 11px;
+    min-width: 100px;
+    text-align: center;
+  }
+  .decode-step .step-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+  }
+  .decode-step .step-value {
+    color: var(--green-bright);
+    font-size: 13px;
+  }
+  .decode-arrow {
+    color: var(--green-dim);
+    font-size: 16px;
+  }
+
+  /* Requirements table */
+  .req-status {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    border: 1px solid;
+  }
+  .req-status.pass {
+    border-color: var(--green-bright);
+    background: rgba(0,255,65,0.08);
+  }
+  .req-status.fail {
+    border-color: var(--red);
+    background: rgba(255,68,68,0.08);
+  }
+  .req-status.warn {
+    border-color: var(--amber);
+    background: rgba(255,204,0,0.08);
+  }
+
+  /* Anomaly chart */
+  .anomaly-chart {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin: 12px 0;
+    font-size: 10px;
+    line-height: 1.2;
+    overflow-x: auto;
+  }
+  .chart-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 14px;
+  }
+  .chart-label {
+    width: 60px;
+    text-align: right;
+    color: var(--text-dim);
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .chart-bar-area {
+    flex: 1;
+    display: flex;
+    gap: 1px;
+    height: 10px;
+  }
+  .chart-dot {
+    width: 6px;
+    height: 10px;
+    border-radius: 1px;
+    transition: all 0.2s;
+  }
+  .chart-dot.normal { background: var(--green-dim); }
+  .chart-dot.anomaly { background: var(--red); box-shadow: 0 0 4px rgba(255,68,68,0.5); }
+  .chart-dot.borderline { background: var(--amber); }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+  }
+  .stat-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 12px;
+  }
+  .stat-card .stat-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .stat-card .stat-value {
+    font-size: 22px;
+    color: var(--green-bright);
+    margin-top: 4px;
+    text-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+  .stat-card .stat-value.fail-val { color: var(--red); text-shadow: 0 0 8px rgba(255,68,68,0.2); }
+  .stat-card .stat-value.warn-val { color: var(--amber); }
+
+  /* Info boxes */
+  .info-box {
+    background: var(--bg-surface);
+    border-left: 3px solid var(--cyan);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .info-box .info-title {
+    color: var(--cyan);
+    font-size: 10px;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .info-box code {
+    background: rgba(0,204,255,0.1);
+    padding: 1px 4px;
+    color: var(--cyan);
+    font-size: 11px;
+  }
+
+  /* ─── PROMPT OUTPUT ─── */
+  #prompt-bar {
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-bright);
+    padding: 10px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-height: 160px;
+  }
+  #prompt-text {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    overflow-y: auto;
+    max-height: 140px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #copy-btn {
+    background: var(--green-faint);
+    border: 1px solid var(--green-bright);
+    color: var(--green-bright);
+    padding: 8px 16px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  #copy-btn:hover {
+    background: rgba(0,255,65,0.15);
+    box-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+  #copy-btn.copied {
+    background: var(--green-bright);
+    color: var(--bg-deep);
+  }
+
+  /* ─── PRESETS ─── */
+  .preset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .preset-btn {
+    padding: 6px 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .preset-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+
+  /* Flow diagram section */
+  .flow-explanation {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+    margin: 16px 0;
+  }
+  .flow-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 12px;
+    min-height: 100px;
+  }
+  .flow-box.active {
+    border-color: var(--green-bright);
+    box-shadow: 0 0 12px rgba(0,255,65,0.08);
+  }
+  .flow-box .flow-title {
+    font-size: 10px;
+    color: var(--green-bright);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .flow-box .flow-detail {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .flow-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--green-dim);
+    font-size: 20px;
+    padding: 0 4px;
+  }
+
+  /* Message selector */
+  .msg-selector {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .msg-chip {
+    padding: 4px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .msg-chip:hover { border-color: var(--green-dim); color: var(--text); }
+  .msg-chip.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,204,255,0.05); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--green-mid); }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>F-16 PDA TOOL — DATA PIPELINE EXPLORER</h1>
+  <div class="notional">ALL DATA NOTIONAL</div>
+</div>
+
+<div id="pipeline-flow"></div>
+
+<div id="main">
+  <div id="sidebar"></div>
+  <div id="content"></div>
+</div>
+
+<div id="prompt-bar">
+  <div id="prompt-text"></div>
+  <button id="copy-btn" onclick="copyPrompt()">COPY BRIEFING</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// ALL DATA IS NOTIONAL — NOT DERIVED FROM CLASSIFIED SOURCES
+// ═══════════════════════════════════════════════════════════
+
+const STAGES = [
+  { id: 'ingest',  label: '.C10 DATA',    num: '01' },
+  { id: 'icd',     label: 'ICD PARSE',    num: '02' },
+  { id: 'as3',     label: 'AS3 EVAL',     num: '03' },
+  { id: 'aiml',    label: 'AI/ML',        num: '04' }
+];
+
+const SUBSYSTEMS = {
+  radar: {
+    name: 'AN/APG-68 Radar',
+    short: 'RADAR',
+    rt: 5,
+    messages: [
+      {
+        sa: 3, dir: 'RT→BC', wc: 8, label: 'Track Data',
+        rawWords: ['1A3F','4B20','0C8A','7FFF','0012','3E00','A100','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 0, name: 'Target Range', type: 'Unsigned', lsb: 0.125, unit: 'nm', cls: 'field-a' },
+          { word: 1, bitsHi: 15, bitsLo: 12, name: 'Radar Mode', type: 'Enum', enums: ['OFF','CRM','ACM','GM','SEA','GMTT','VS','TWS'], cls: 'field-b' },
+          { word: 1, bitsHi: 11, bitsLo: 0, name: 'Target Bearing', type: 'Unsigned', lsb: 0.088, unit: 'deg', cls: 'field-c' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Target Elevation', type: 'Signed', lsb: 0.01, unit: 'deg', cls: 'field-d' },
+        ]
+      },
+      {
+        sa: 7, dir: 'RT→BC', wc: 6, label: 'Radar Status',
+        rawWords: ['8001','2400','FF00','0320','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 15, name: 'BIT Status', type: 'Discrete', enums: ['GO','NO-GO'], cls: 'field-a' },
+          { word: 0, bitsHi: 14, bitsLo: 12, name: 'Op Mode', type: 'Enum', enums: ['STBY','OPER','DGRD','MAINT','OFF','TEST','CAL','INIT'], cls: 'field-b' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'Antenna Azimuth', type: 'Unsigned', lsb: 0.0055, unit: 'deg', cls: 'field-c' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-RAD-0042', text: 'Target range shall update at ≥10 Hz', status: 'pass', actual: '12.5 Hz', threshold: '≥10 Hz', evidence: 'Measured 12.5 Hz avg over 240s window' },
+      { id: 'AS3-RAD-0078', text: 'Radar mode transition shall complete within 2.0s', status: 'pass', actual: '1.3s', threshold: '≤2.0s', evidence: 'Max transition time observed: 1.3s (CRM→ACM)' },
+      { id: 'AS3-RAD-0103', text: 'Target bearing accuracy shall be within ±1.0°', status: 'fail', actual: '±1.7°', threshold: '±1.0°', evidence: 'Bearing deviation exceeded tolerance at t=142.3s' },
+      { id: 'AS3-RAD-0115', text: 'BIT shall complete within 30s of initiation', status: 'pass', actual: '18.2s', threshold: '≤30s', evidence: 'BIT completed in 18.2s' },
+      { id: 'AS3-RAD-0129', text: 'Antenna scan pattern shall cover ±60° azimuth', status: 'pass', actual: '±62°', threshold: '±60°', evidence: 'Full scan coverage confirmed' },
+    ],
+    anomalyData: generateAnomalyData(120, 0.08, 42)
+  },
+  ew: {
+    name: 'EW Suite (ALQ-213)',
+    short: 'EW',
+    rt: 8,
+    messages: [
+      {
+        sa: 2, dir: 'RT→BC', wc: 6, label: 'Threat Warning',
+        rawWords: ['3C10','B240','0F00','1800','4200','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 12, name: 'Threat Type', type: 'Enum', enums: ['NONE','SAM','AAA','AI','UNKN','MULTI','CRIT','MISC'], cls: 'field-a' },
+          { word: 0, bitsHi: 11, bitsLo: 0, name: 'Threat Bearing', type: 'Unsigned', lsb: 0.088, unit: 'deg', cls: 'field-b' },
+          { word: 1, bitsHi: 15, bitsLo: 14, name: 'Priority', type: 'Enum', enums: ['LOW','MED','HIGH','CRIT'], cls: 'field-c' },
+          { word: 1, bitsHi: 13, bitsLo: 0, name: 'Signal Strength', type: 'Unsigned', lsb: 0.1, unit: 'dBm', cls: 'field-d' },
+        ]
+      },
+      {
+        sa: 5, dir: 'RT→BC', wc: 4, label: 'CM Status',
+        rawWords: ['1E0A','0C05','0300','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 8, name: 'Chaff Remaining', type: 'Unsigned', lsb: 1, unit: 'qty', cls: 'field-a' },
+          { word: 0, bitsHi: 7, bitsLo: 0, name: 'Flare Remaining', type: 'Unsigned', lsb: 1, unit: 'qty', cls: 'field-b' },
+          { word: 1, bitsHi: 15, bitsLo: 12, name: 'CM Mode', type: 'Enum', enums: ['OFF','STBY','SEMI','AUTO','MAN','BYP','PROG1','PROG2'], cls: 'field-c' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-EW-0021', text: 'Threat detection latency shall be ≤0.5s', status: 'pass', actual: '0.32s', threshold: '≤0.5s', evidence: 'Average detection latency 0.32s across 47 events' },
+      { id: 'AS3-EW-0044', text: 'CM dispense shall initiate within 0.25s of auto command', status: 'pass', actual: '0.18s', threshold: '≤0.25s', evidence: 'Fastest: 0.12s, Slowest: 0.23s' },
+      { id: 'AS3-EW-0067', text: 'Threat bearing accuracy shall be within ±5°', status: 'pass', actual: '±3.2°', threshold: '±5°', evidence: 'Max deviation 4.1° at low signal strength' },
+      { id: 'AS3-EW-0089', text: 'System shall track ≥8 simultaneous threats', status: 'warn', actual: '7 tracked', threshold: '≥8', evidence: 'Dropped 9th threat at t=89.1s under high-density scenario' },
+    ],
+    anomalyData: generateAnomalyData(120, 0.05, 17)
+  },
+  nav: {
+    name: 'EGI Navigation',
+    short: 'NAV',
+    rt: 12,
+    messages: [
+      {
+        sa: 1, dir: 'RT→BC', wc: 8, label: 'Position Data',
+        rawWords: ['2D50','4A1C','7B30','0E44','6100','3F80','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 0, name: 'Latitude (high)', type: 'Signed', lsb: 0.00055, unit: 'deg', cls: 'field-a' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'Latitude (low)', type: 'Unsigned', lsb: 0.0000001, unit: 'deg', cls: 'field-a' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Longitude (high)', type: 'Signed', lsb: 0.00055, unit: 'deg', cls: 'field-b' },
+          { word: 3, bitsHi: 15, bitsLo: 0, name: 'Longitude (low)', type: 'Unsigned', lsb: 0.0000001, unit: 'deg', cls: 'field-b' },
+        ]
+      },
+      {
+        sa: 4, dir: 'RT→BC', wc: 6, label: 'Velocity Data',
+        rawWords: ['01F4','0168','FF9C','0B40','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 0, name: 'Ground Speed', type: 'Unsigned', lsb: 0.1, unit: 'kts', cls: 'field-a' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'True Heading', type: 'Unsigned', lsb: 0.0055, unit: 'deg', cls: 'field-c' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Vertical Speed', type: 'Signed', lsb: 0.5, unit: 'ft/min', cls: 'field-d' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-NAV-0015', text: 'Position data shall update at ≥50 Hz', status: 'pass', actual: '50 Hz', threshold: '≥50 Hz', evidence: 'Consistent 50 Hz update rate measured' },
+      { id: 'AS3-NAV-0033', text: 'GPS/INS blended solution FOM shall be ≤3', status: 'pass', actual: 'FOM 2', threshold: '≤3', evidence: 'FOM steady at 2 throughout sortie' },
+      { id: 'AS3-NAV-0051', text: 'Heading accuracy shall be within ±0.5° in NAV mode', status: 'pass', actual: '±0.3°', threshold: '±0.5°', evidence: 'Max heading error 0.42° observed' },
+      { id: 'AS3-NAV-0068', text: 'Position shall not exceed CEP 10m in GPS/INS mode', status: 'pass', actual: 'CEP 7.2m', threshold: '≤10m', evidence: 'CEP calculated over 3600 samples' },
+    ],
+    anomalyData: generateAnomalyData(120, 0.03, 88)
+  },
+  sms: {
+    name: 'Stores Management',
+    short: 'SMS',
+    rt: 15,
+    messages: [
+      {
+        sa: 3, dir: 'RT→BC', wc: 6, label: 'Stores Inventory',
+        rawWords: ['3201','1402','0803','0000','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 12, name: 'Station', type: 'Enum', enums: ['1','2','3','4','5','6','7','8','9','STA10','STA11','STA12'], cls: 'field-a' },
+          { word: 0, bitsHi: 11, bitsLo: 4, name: 'Store Type', type: 'Enum', enums: ['EMPTY','AIM-9','AIM-120','GBU-31','GBU-38','MK-82','MK-84','TER','FUEL','ECM','TGT-POD','NAV-POD','PYLON','ALQ','SMOKE','CHAFF'], cls: 'field-b' },
+          { word: 0, bitsHi: 3, bitsLo: 0, name: 'Quantity', type: 'Unsigned', lsb: 1, unit: 'ea', cls: 'field-c' },
+        ]
+      },
+      {
+        sa: 6, dir: 'BC→RT', wc: 4, label: 'Release Command',
+        rawWords: ['0201','0064','0100','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 12, name: 'Release Mode', type: 'Enum', enums: ['SAFE','SGL','PAIR','RIPPLE','SALVO','JETT','EMER','TEST'], cls: 'field-a' },
+          { word: 0, bitsHi: 11, bitsLo: 8, name: 'Station Select', type: 'Unsigned', lsb: 1, unit: '', cls: 'field-b' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'Release Interval', type: 'Unsigned', lsb: 1, unit: 'ms', cls: 'field-c' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-SMS-0012', text: 'Stores inventory shall update within 1.0s of change', status: 'pass', actual: '0.6s', threshold: '≤1.0s', evidence: 'Inventory updated 0.6s after release event' },
+      { id: 'AS3-SMS-0034', text: 'Release command shall execute within 50ms of consent', status: 'pass', actual: '32ms', threshold: '≤50ms', evidence: 'Measured 32ms command-to-release latency' },
+      { id: 'AS3-SMS-0056', text: 'JETT function shall release all stations simultaneously', status: 'fail', actual: '12ms skew', threshold: '≤5ms skew', evidence: 'Station 3 released 12ms after station 7 in JETT test' },
+      { id: 'AS3-SMS-0071', text: 'Safe/Arm status shall be reported at ≥20 Hz', status: 'pass', actual: '25 Hz', threshold: '≥20 Hz', evidence: 'Consistent 25 Hz reporting confirmed' },
+    ],
+    anomalyData: generateAnomalyData(120, 0.06, 63)
+  }
+};
+
+function generateAnomalyData(count, contamination, seed) {
+  const data = [];
+  let s = seed;
+  function rand() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }
+  for (let i = 0; i < count; i++) {
+    const isAnomaly = rand() < contamination;
+    const isBorderline = !isAnomaly && rand() < 0.05;
+    data.push({
+      time: (i * 2.0).toFixed(1),
+      value: isAnomaly ? 0.7 + rand() * 0.3 : (isBorderline ? 0.45 + rand() * 0.15 : rand() * 0.4),
+      label: isAnomaly ? 'anomaly' : (isBorderline ? 'borderline' : 'normal')
+    });
+  }
+  return data;
+}
+
+// ─── STATE ───
+const state = {
+  stage: 'ingest',
+  subsystem: 'radar',
+  messageIdx: 0,
+  showDecoded: false,
+  anomalySensitivity: 0.10,
+  lsbOverride: null,
+  showExplanations: true,
+};
+
+const DEFAULTS = { ...state };
+
+// ─── RENDER PIPELINE ───
+function renderPipeline() {
+  const el = document.getElementById('pipeline-flow');
+  el.innerHTML = STAGES.map((s, i) => {
+    const arrow = i < STAGES.length - 1
+      ? `<span class="pipeline-arrow ${state.stage === STAGES[i+1].id || state.stage === s.id ? 'active' : ''}">\u25B6</span>`
+      : '';
+    return `
+      <div class="pipeline-stage" onclick="setState('stage','${s.id}')">
+        <div class="pipeline-node ${state.stage === s.id ? 'active' : ''}">
+          <span class="stage-num">STAGE ${s.num}</span>
+          ${s.label}
+        </div>
+      </div>
+      ${arrow}
+    `;
+  }).join('');
+}
+
+// ─── RENDER SIDEBAR ───
+function renderSidebar() {
+  const sub = SUBSYSTEMS[state.subsystem];
+  let html = '';
+
+  // Subsystem selector
+  html += `<div class="ctrl-section">
+    <div class="ctrl-label">SUBSYSTEM</div>
+    ${Object.entries(SUBSYSTEMS).map(([key, val]) => `
+      <button class="ctrl-btn ${state.subsystem === key ? 'active' : ''}" onclick="setState('subsystem','${key}')">
+        ${val.short}
+        <span class="btn-sub">RT ${val.rt} — ${val.name}</span>
+      </button>
+    `).join('')}
+  </div>`;
+
+  // Stage-specific controls
+  if (state.stage === 'ingest' || state.stage === 'icd') {
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">1553 MESSAGE</div>
+      ${sub.messages.map((m, i) => `
+        <button class="ctrl-btn ${state.messageIdx === i ? 'active' : ''}" onclick="setState('messageIdx',${i})">
+          SA ${m.sa}: ${m.label}
+          <span class="btn-sub">${m.dir} / ${m.wc} words</span>
+        </button>
+      `).join('')}
+    </div>`;
+  }
+
+  if (state.stage === 'ingest') {
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">VIEW MODE</div>
+      <div class="toggle-row" onclick="setState('showDecoded', !state.showDecoded)">
+        <div class="toggle ${state.showDecoded ? 'on' : ''}"></div>
+        <span class="toggle-label">${state.showDecoded ? 'Decoded Values' : 'Raw Hex'}</span>
+      </div>
+    </div>`;
+  }
+
+  if (state.stage === 'icd') {
+    const msg = sub.messages[state.messageIdx];
+    const field = msg.fields[0];
+    if (field.lsb && typeof field.lsb === 'number') {
+      const currentLsb = state.lsbOverride !== null ? state.lsbOverride : field.lsb;
+      html += `<div class="ctrl-section">
+        <div class="ctrl-label">LSB SCALING</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
+          Adjust "${field.name}" LSB to see effect on decoded value
+        </div>
+        <div class="slider-row">
+          <input type="range" min="0.001" max="1.0" step="0.001"
+            value="${currentLsb}"
+            oninput="setState('lsbOverride', parseFloat(this.value))">
+          <span class="slider-val">${currentLsb.toFixed(3)}</span>
+        </div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px">
+          ICD default: ${field.lsb} ${field.unit}
+        </div>
+      </div>`;
+    }
+  }
+
+  if (state.stage === 'aiml') {
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">ANOMALY SENSITIVITY</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
+        Isolation Forest contamination parameter
+      </div>
+      <div class="slider-row">
+        <input type="range" min="0.01" max="0.30" step="0.01"
+          value="${state.anomalySensitivity}"
+          oninput="setState('anomalySensitivity', parseFloat(this.value))">
+        <span class="slider-val">${(state.anomalySensitivity * 100).toFixed(0)}%</span>
+      </div>
+      <div style="font-size:9px;color:var(--text-dim);margin-top:4px">
+        Higher = more points flagged as anomalous
+      </div>
+    </div>`;
+  }
+
+  // Explanations toggle
+  html += `<div class="ctrl-section">
+    <div class="ctrl-label">OPTIONS</div>
+    <div class="toggle-row" onclick="setState('showExplanations', !state.showExplanations)">
+      <div class="toggle ${state.showExplanations ? 'on' : ''}"></div>
+      <span class="toggle-label">Show Explanations</span>
+    </div>
+  </div>`;
+
+  // Presets
+  html += `<div class="ctrl-section">
+    <div class="ctrl-label">PRESETS</div>
+    <div class="preset-grid">
+      <button class="preset-btn" onclick="applyPreset('overview')">OVERVIEW</button>
+      <button class="preset-btn" onclick="applyPreset('decode')">DECODE</button>
+      <button class="preset-btn" onclick="applyPreset('reqcheck')">REQ CHECK</button>
+      <button class="preset-btn" onclick="applyPreset('anomaly')">ANOMALY</button>
+    </div>
+  </div>`;
+
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+// ─── PRESETS ───
+function applyPreset(name) {
+  switch(name) {
+    case 'overview':
+      state.stage = 'ingest'; state.subsystem = 'radar'; state.messageIdx = 0;
+      state.showDecoded = false; state.showExplanations = true;
+      break;
+    case 'decode':
+      state.stage = 'icd'; state.subsystem = 'radar'; state.messageIdx = 0;
+      state.lsbOverride = null; state.showExplanations = true;
+      break;
+    case 'reqcheck':
+      state.stage = 'as3'; state.subsystem = 'radar'; state.showExplanations = true;
+      break;
+    case 'anomaly':
+      state.stage = 'aiml'; state.subsystem = 'radar'; state.anomalySensitivity = 0.10;
+      state.showExplanations = true;
+      break;
+  }
+  updateAll();
+}
+
+// ─── RENDER CONTENT ───
+function renderContent() {
+  const el = document.getElementById('content');
+  switch (state.stage) {
+    case 'ingest': el.innerHTML = renderIngest(); break;
+    case 'icd':    el.innerHTML = renderICD(); break;
+    case 'as3':    el.innerHTML = renderAS3(); break;
+    case 'aiml':   el.innerHTML = renderAIML(); break;
+  }
+}
+
+// ─── STAGE 1: INGEST ───
+function renderIngest() {
+  const sub = SUBSYSTEMS[state.subsystem];
+  const msg = sub.messages[state.messageIdx];
+  let html = '';
+
+  html += `<div class="content-title">STAGE 01: .C10 FLIGHT DATA INGESTION</div>`;
+  html += `<div class="content-desc">
+    Chapter 10 (IRIG 106) files contain time-stamped recordings of all MIL-STD-1553B bus traffic
+    captured during flight test. Each message is identified by its Remote Terminal (RT) address,
+    Subaddress (SA), and transfer direction.
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">HOW .C10 INGESTION WORKS</div>
+      The PDA Tool reads raw .c10 recorder files and extracts every 1553 bus transaction.
+      Each message has a <code>timestamp</code>, <code>bus (A/B)</code>, <code>RT address</code> (0-30),
+      <code>subaddress</code> (1-30), <code>T/R bit</code> (transmit/receive), and up to 32 <code>data words</code> (16 bits each).
+      The tool normalizes these into an internal time-indexed representation for downstream analysis.
+    </div>`;
+  }
+
+  // Flow diagram
+  html += `<div class="flow-explanation">
+    <div class="flow-box active">
+      <div class="flow-title">.C10 FILE</div>
+      <div class="flow-detail">
+        IRIG 106 Ch.10<br>
+        Raw bus capture<br>
+        Time-stamped<br>
+        ${sub.messages.length} msg types
+      </div>
+    </div>
+    <div class="flow-connector">▶</div>
+    <div class="flow-box">
+      <div class="flow-title">DEMUX</div>
+      <div class="flow-detail">
+        Separate by RT/SA<br>
+        Validate checksums<br>
+        Check continuity<br>
+        Flag bus errors
+      </div>
+    </div>
+    <div class="flow-connector">▶</div>
+    <div class="flow-box">
+      <div class="flow-title">NORMALIZE</div>
+      <div class="flow-detail">
+        Time-align msgs<br>
+        Index by RT/SA<br>
+        Store as internal<br>
+        message objects
+      </div>
+    </div>
+    <div class="flow-connector">▶</div>
+    <div class="flow-box">
+      <div class="flow-title">OUTPUT</div>
+      <div class="flow-detail">
+        Time-series DB<br>
+        HDF5 / Parquet<br>
+        Ready for ICD<br>
+        parsing stage
+      </div>
+    </div>
+  </div>`;
+
+  // Simulated bus traffic table
+  html += `<div style="margin-top:16px">
+    <div class="ctrl-label" style="margin-bottom:8px">CAPTURED 1553 BUS TRAFFIC — ${sub.short} (RT ${sub.rt})</div>
+  </div>`;
+
+  const timestamps = ['00:12:33.4210','00:12:33.4410','00:12:33.5210','00:12:33.5610','00:12:33.6210','00:12:33.7010','00:12:33.7810','00:12:33.8210'];
+
+  html += `<table class="data-table"><tr>
+    <th>TIME</th><th>BUS</th><th>RT</th><th>T/R</th><th>SA</th><th>WC</th>
+    ${state.showDecoded ? '<th>DECODED FIELDS</th>' : '<th>DATA WORDS (HEX)</th>'}
+  </tr>`;
+
+  timestamps.forEach((ts, i) => {
+    const m = sub.messages[i % sub.messages.length];
+    const isSelected = (i % sub.messages.length) === state.messageIdx;
+    const bus = i % 3 === 0 ? 'B' : 'A';
+    const tr = m.dir === 'RT→BC' ? 'T' : 'R';
+
+    let dataCol;
+    if (state.showDecoded) {
+      const fields = m.fields.slice(0, 3).map(f => {
+        const raw = parseInt(m.rawWords[f.word], 16);
+        const val = decodeField(raw, f);
+        return `<span class="decoded">${f.name}: ${val}</span>`;
+      });
+      dataCol = fields.join(' &nbsp;│&nbsp; ');
+    } else {
+      dataCol = m.rawWords.map(w => `<span class="hex">${w}</span>`).join(' ');
+    }
+
+    html += `<tr class="${isSelected ? 'highlight' : ''}">
+      <td class="dim">${ts}</td>
+      <td>${bus}</td>
+      <td>${sub.rt}</td>
+      <td>${tr}</td>
+      <td>${m.sa}</td>
+      <td>${m.wc}</td>
+      <td>${dataCol}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  return html;
+}
+
+// ─── STAGE 2: ICD PARSE ───
+function renderICD() {
+  const sub = SUBSYSTEMS[state.subsystem];
+  const msg = sub.messages[state.messageIdx];
+  let html = '';
+
+  html += `<div class="content-title">STAGE 02: ICD PARSING ENGINE</div>`;
+  html += `<div class="content-desc">
+    The ICD (Interface Control Document) defines the exact bit-level format of each 1553 message.
+    The parsing engine uses these definitions to decode raw hex data words into engineering-unit parameters.
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">ICD DECODING PROCESS</div>
+      Each 1553 data word is 16 bits. The ICD specifies which bits belong to which parameter,
+      the data type (unsigned, signed, enum, discrete), the <code>LSB scaling factor</code>,
+      and the engineering <code>unit</code>. Decoding follows:<br>
+      <strong>Raw Hex → Binary → Bit Extraction → Integer Value → × LSB → Engineering Units</strong>
+    </div>`;
+  }
+
+  // Message header
+  html += `<div style="margin:12px 0">
+    <span class="ctrl-label">MESSAGE: </span>
+    <span style="color:var(--cyan)">RT ${sub.rt}, SA ${msg.sa}, ${msg.dir}, ${msg.wc} Words</span>
+    <span style="color:var(--text-dim)"> — ${msg.label}</span>
+  </div>`;
+
+  // Bit field visualization for first word
+  const rawWord = parseInt(msg.rawWords[0], 16);
+  const binary = rawWord.toString(2).padStart(16, '0');
+
+  html += `<div class="bitfield-viz">
+    <div class="bitfield-title">WORD 0: 0x${msg.rawWords[0]} — BIT FIELD BREAKDOWN</div>`;
+
+  // Bit number row
+  html += `<div class="bit-num">`;
+  for (let i = 15; i >= 0; i--) html += `<span>${i}</span>`;
+  html += `</div>`;
+
+  // Bit value row with field coloring
+  html += `<div class="bitfield-row">`;
+  const word0Fields = msg.fields.filter(f => f.word === 0);
+  for (let i = 15; i >= 0; i--) {
+    let cls = '';
+    for (const f of word0Fields) {
+      if (i >= f.bitsLo && i <= f.bitsHi) { cls = f.cls; break; }
+    }
+    html += `<div class="bit-cell ${cls}">${binary[15 - i]}</div>`;
+  }
+  html += `</div>`;
+
+  // Legend
+  html += `<div class="field-legend">`;
+  word0Fields.forEach(f => {
+    const colors = {
+      'field-a': { bg: 'rgba(0,204,255,0.12)', border: 'rgba(0,204,255,0.3)', text: '#00ccff' },
+      'field-b': { bg: 'rgba(0,255,65,0.08)', border: 'rgba(0,255,65,0.25)', text: '#00ff41' },
+      'field-c': { bg: 'rgba(255,204,0,0.08)', border: 'rgba(255,204,0,0.25)', text: '#ffcc00' },
+      'field-d': { bg: 'rgba(255,68,68,0.08)', border: 'rgba(255,68,68,0.2)', text: '#ff4444' },
+    };
+    const c = colors[f.cls];
+    html += `<div class="field-legend-item">
+      <div class="field-swatch" style="background:${c.bg};border-color:${c.border}"></div>
+      <span style="color:${c.text}">[${f.bitsHi}:${f.bitsLo}] ${f.name}</span>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Decode chain for each field
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">FIELD DECODING</div>`;
+
+  msg.fields.forEach(f => {
+    const raw = parseInt(msg.rawWords[f.word], 16);
+    const lsb = (f.word === 0 && state.lsbOverride !== null && f.lsb) ? state.lsbOverride : f.lsb;
+    const decoded = decodeFieldCustomLsb(raw, f, lsb);
+    const extracted = extractBits(raw, f.bitsHi, f.bitsLo);
+    const isOverridden = f.word === 0 && state.lsbOverride !== null && f.lsb && state.lsbOverride !== f.lsb;
+
+    html += `<div class="decode-chain">
+      <div class="decode-step">
+        <div class="step-label">RAW HEX</div>
+        <div class="step-value" style="color:var(--cyan)">0x${msg.rawWords[f.word]}</div>
+      </div>
+      <span class="decode-arrow">▶</span>
+      <div class="decode-step">
+        <div class="step-label">BITS [${f.bitsHi}:${f.bitsLo}]</div>
+        <div class="step-value">${extracted}</div>
+      </div>
+      <span class="decode-arrow">▶</span>
+      <div class="decode-step">
+        <div class="step-label">${f.type === 'Enum' || f.type === 'Discrete' ? 'LOOKUP' : '× LSB ' + (lsb || '')}</div>
+        <div class="step-value" style="color:var(--green-bright);${isOverridden ? 'text-shadow:0 0 8px rgba(255,204,0,0.5);color:var(--amber)' : ''}">${decoded}</div>
+      </div>
+      <div class="decode-step" style="border-color:var(--green-dim)">
+        <div class="step-label">PARAMETER</div>
+        <div class="step-value" style="font-size:10px;color:var(--text)">${f.name}${f.unit ? ' (' + f.unit + ')' : ''}</div>
+      </div>
+    </div>`;
+  });
+
+  // Full decoded table
+  html += `<div class="ctrl-label" style="margin:20px 0 8px">ALL WORDS — DECODED</div>`;
+  html += `<table class="data-table"><tr>
+    <th>WORD</th><th>RAW HEX</th><th>BINARY</th><th>FIELD</th><th>DECODED VALUE</th>
+  </tr>`;
+
+  msg.rawWords.forEach((w, wi) => {
+    const rawVal = parseInt(w, 16);
+    const bin = rawVal.toString(2).padStart(16, '0');
+    const fields = msg.fields.filter(f => f.word === wi);
+    if (fields.length === 0) {
+      html += `<tr><td>${wi}</td><td class="hex">${w}</td><td class="dim">${bin}</td><td class="dim">—</td><td class="dim">—</td></tr>`;
+    } else {
+      fields.forEach((f, fi) => {
+        const decoded = decodeField(rawVal, f);
+        html += `<tr${fi === 0 ? '' : ' style="border-top:none"'}>
+          ${fi === 0 ? `<td rowspan="${fields.length}">${wi}</td><td rowspan="${fields.length}" class="hex">${w}</td><td rowspan="${fields.length}" class="dim">${bin}</td>` : ''}
+          <td>${f.name} <span class="dim">[${f.bitsHi}:${f.bitsLo}]</span></td>
+          <td class="decoded">${decoded}${f.unit ? ' ' + f.unit : ''}</td>
+        </tr>`;
+      });
+    }
+  });
+  html += `</table>`;
+
+  return html;
+}
+
+// ─── STAGE 3: AS3 EVAL ───
+function renderAS3() {
+  const sub = SUBSYSTEMS[state.subsystem];
+  let html = '';
+
+  html += `<div class="content-title">STAGE 03: AS3 REQUIREMENT EVALUATION</div>`;
+  html += `<div class="content-desc">
+    AS3 system-level requirements define what each subsystem must do. The analysis engine
+    evaluates decoded flight data against each requirement, producing pass/fail determinations with evidence.
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">HOW AS3 EVALUATION WORKS</div>
+      Each AS3 requirement becomes a testable assertion. The engine scans the decoded time-series data
+      for the relevant parameters and evaluates conditions like:
+      <code>update_rate ≥ threshold</code>, <code>|actual - expected| ≤ tolerance</code>,
+      or <code>transition_time ≤ max_time</code>.
+      Results include the actual measured value, the pass/fail threshold, and supporting evidence
+      with timestamps for traceability.
+    </div>`;
+  }
+
+  // Summary stats
+  const passCount = sub.requirements.filter(r => r.status === 'pass').length;
+  const failCount = sub.requirements.filter(r => r.status === 'fail').length;
+  const warnCount = sub.requirements.filter(r => r.status === 'warn').length;
+  const total = sub.requirements.length;
+
+  html += `<div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL REQUIREMENTS</div>
+      <div class="stat-value">${total}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">PASS</div>
+      <div class="stat-value">${passCount}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">FAIL</div>
+      <div class="stat-value ${failCount > 0 ? 'fail-val' : ''}">${failCount}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">WARNING</div>
+      <div class="stat-value ${warnCount > 0 ? 'warn-val' : ''}">${warnCount}</div>
+    </div>
+  </div>`;
+
+  // Requirements table
+  html += `<table class="data-table"><tr>
+    <th>STATUS</th><th>REQ ID</th><th>REQUIREMENT</th><th>ACTUAL</th><th>THRESHOLD</th>
+  </tr>`;
+
+  sub.requirements.forEach(r => {
+    html += `<tr>
+      <td><span class="req-status ${r.status}">${r.status.toUpperCase()}</span></td>
+      <td style="color:var(--cyan);white-space:nowrap">${r.id}</td>
+      <td>${r.text}</td>
+      <td class="${r.status === 'pass' ? 'pass' : r.status === 'fail' ? 'fail' : 'warn'}">${r.actual}</td>
+      <td class="dim">${r.threshold}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+
+  // Evidence detail
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">EVIDENCE LOG</div>`;
+  sub.requirements.forEach(r => {
+    const borderColor = r.status === 'pass' ? 'var(--green-dim)' : r.status === 'fail' ? 'var(--red)' : 'var(--amber)';
+    html += `<div style="background:var(--bg-surface);border-left:3px solid ${borderColor};padding:8px 12px;margin-bottom:4px;font-size:11px">
+      <span style="color:var(--cyan)">${r.id}</span>
+      <span class="${r.status}">[${r.status.toUpperCase()}]</span>
+      — ${r.evidence}
+    </div>`;
+  });
+
+  return html;
+}
+
+// ─── STAGE 4: AI/ML ───
+function renderAIML() {
+  const sub = SUBSYSTEMS[state.subsystem];
+  const sensitivity = state.anomalySensitivity;
+  let html = '';
+
+  html += `<div class="content-title">STAGE 04: AI/ML ANOMALY DETECTION</div>`;
+  html += `<div class="content-desc">
+    Beyond rule-based AS3 checks, the AI/ML engine uses Isolation Forest to detect
+    subtle anomalies in parameter behavior that may indicate unreported issues.
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">HOW ISOLATION FOREST WORKS</div>
+      Isolation Forest detects anomalies by randomly partitioning data. Anomalous points
+      require <strong>fewer splits</strong> to isolate because they differ from normal data.
+      The <code>contamination</code> parameter (currently ${(sensitivity*100).toFixed(0)}%) sets
+      the expected proportion of anomalies — higher values flag more points, increasing
+      sensitivity but also false positives. The algorithm scores each sample from 0.0 (normal)
+      to 1.0 (anomalous). Points above the threshold are flagged for engineer review.
+    </div>`;
+  }
+
+  // Re-classify based on sensitivity
+  const threshold = 1.0 - sensitivity;
+  const classified = sub.anomalyData.map(d => ({
+    ...d,
+    detected: d.value > threshold ? 'anomaly' : (d.value > threshold - 0.1 ? 'borderline' : 'normal')
+  }));
+
+  const anomalyCount = classified.filter(d => d.detected === 'anomaly').length;
+  const borderlineCount = classified.filter(d => d.detected === 'borderline').length;
+  const normalCount = classified.filter(d => d.detected === 'normal').length;
+
+  html += `<div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">SAMPLES ANALYZED</div>
+      <div class="stat-value">${classified.length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ANOMALIES DETECTED</div>
+      <div class="stat-value fail-val">${anomalyCount}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">BORDERLINE</div>
+      <div class="stat-value warn-val">${borderlineCount}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">NORMAL</div>
+      <div class="stat-value">${normalCount}</div>
+    </div>
+  </div>`;
+
+  // Anomaly score chart
+  html += `<div class="ctrl-label" style="margin:12px 0 6px">ANOMALY SCORE TIMELINE — ${sub.short} PARAMETERS</div>`;
+  html += `<div class="anomaly-chart">`;
+
+  // Y-axis labels and bars
+  const rows = 12;
+  for (let row = rows; row >= 0; row--) {
+    const yVal = (row / rows).toFixed(1);
+    html += `<div class="chart-row">
+      <span class="chart-label">${row === rows ? '1.0' : row === 0 ? '0.0' : row % 3 === 0 ? yVal : ''}</span>
+      <div class="chart-bar-area">`;
+
+    classified.forEach(d => {
+      const barRow = Math.floor(d.value * rows);
+      if (barRow === row) {
+        html += `<div class="chart-dot ${d.detected}" title="t=${d.time}s score=${d.value.toFixed(2)}"></div>`;
+      } else {
+        html += `<div style="width:6px"></div>`;
+      }
+    });
+
+    html += `</div></div>`;
+  }
+
+  // Threshold line indicator
+  html += `<div style="margin-top:8px;font-size:10px">
+    <span style="color:var(--text-dim)">── Threshold: </span>
+    <span style="color:var(--amber)">${threshold.toFixed(2)}</span>
+    <span style="color:var(--text-dim)"> │ </span>
+    <span class="chart-dot normal" style="display:inline-block;vertical-align:middle"></span>
+    <span style="color:var(--text-dim)"> Normal </span>
+    <span class="chart-dot borderline" style="display:inline-block;vertical-align:middle"></span>
+    <span style="color:var(--text-dim)"> Borderline </span>
+    <span class="chart-dot anomaly" style="display:inline-block;vertical-align:middle"></span>
+    <span style="color:var(--text-dim)"> Anomaly</span>
+  </div>`;
+
+  html += `</div>`;
+
+  // Detected anomalies list
+  if (anomalyCount > 0) {
+    html += `<div class="ctrl-label" style="margin:16px 0 8px">FLAGGED ANOMALIES</div>`;
+    html += `<table class="data-table"><tr>
+      <th>TIME (s)</th><th>SCORE</th><th>CLASSIFICATION</th><th>RECOMMENDED ACTION</th>
+    </tr>`;
+    classified.filter(d => d.detected === 'anomaly').slice(0, 15).forEach(d => {
+      const action = d.value > 0.9 ? 'Engineer review required' : 'Monitor — verify against AS3';
+      html += `<tr>
+        <td class="dim">${d.time}</td>
+        <td class="fail">${d.value.toFixed(3)}</td>
+        <td><span class="req-status fail">ANOMALY</span></td>
+        <td class="dim">${action}</td>
+      </tr>`;
+    });
+    html += `</table>`;
+  }
+
+  // Feature importance (simulated)
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">FEATURE IMPORTANCE — ISOLATION FOREST</div>`;
+  const features = getFeatureImportance(state.subsystem);
+  html += `<div style="background:var(--bg-surface);border:1px solid var(--border);padding:12px">`;
+  features.forEach(f => {
+    const barWidth = Math.round(f.importance * 100);
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:140px;font-size:10px;color:var(--text);text-align:right">${f.name}</span>
+      <div style="flex:1;height:12px;background:var(--bg-deep);border:1px solid var(--border)">
+        <div style="width:${barWidth}%;height:100%;background:${f.importance > 0.6 ? 'var(--green-bright)' : f.importance > 0.3 ? 'var(--green-dim)' : 'var(--text-dim)'};transition:width 0.3s"></div>
+      </div>
+      <span style="width:40px;font-size:10px;color:var(--green-mid);text-align:right">${(f.importance * 100).toFixed(0)}%</span>
+    </div>`;
+  });
+  html += `</div>`;
+
+  return html;
+}
+
+function getFeatureImportance(subsystem) {
+  const features = {
+    radar: [
+      { name: 'Target Range', importance: 0.82 },
+      { name: 'Update Rate', importance: 0.71 },
+      { name: 'Mode Transitions', importance: 0.64 },
+      { name: 'Bearing Δ', importance: 0.53 },
+      { name: 'BIT Status', importance: 0.28 },
+    ],
+    ew: [
+      { name: 'Threat Density', importance: 0.88 },
+      { name: 'Response Latency', importance: 0.75 },
+      { name: 'CM Inventory Δ', importance: 0.61 },
+      { name: 'Signal Strength', importance: 0.44 },
+      { name: 'Bearing Accuracy', importance: 0.32 },
+    ],
+    nav: [
+      { name: 'Position Drift', importance: 0.91 },
+      { name: 'FOM Changes', importance: 0.69 },
+      { name: 'GPS SV Count', importance: 0.57 },
+      { name: 'Heading Rate', importance: 0.41 },
+      { name: 'Altitude Δ', importance: 0.22 },
+    ],
+    sms: [
+      { name: 'Inventory State', importance: 0.85 },
+      { name: 'Release Timing', importance: 0.78 },
+      { name: 'Station Skew', importance: 0.66 },
+      { name: 'Mode Changes', importance: 0.39 },
+      { name: 'Arm Status', importance: 0.25 },
+    ],
+  };
+  return features[subsystem] || features.radar;
+}
+
+// ─── DECODE HELPERS ───
+function extractBits(word, hi, lo) {
+  const mask = ((1 << (hi - lo + 1)) - 1);
+  return (word >> lo) & mask;
+}
+
+function decodeField(rawWord, field) {
+  const val = extractBits(rawWord, field.bitsHi, field.bitsLo);
+  if (field.type === 'Enum' || field.type === 'Discrete') {
+    return field.enums[val] || `UNKN(${val})`;
+  }
+  if (field.type === 'Signed') {
+    const bits = field.bitsHi - field.bitsLo + 1;
+    const signBit = 1 << (bits - 1);
+    const signedVal = val >= signBit ? val - (1 << bits) : val;
+    return (signedVal * (field.lsb || 1)).toFixed(3);
+  }
+  return (val * (field.lsb || 1)).toFixed(3);
+}
+
+function decodeFieldCustomLsb(rawWord, field, lsb) {
+  const val = extractBits(rawWord, field.bitsHi, field.bitsLo);
+  if (field.type === 'Enum' || field.type === 'Discrete') {
+    return field.enums[val] || `UNKN(${val})`;
+  }
+  if (field.type === 'Signed') {
+    const bits = field.bitsHi - field.bitsLo + 1;
+    const signBit = 1 << (bits - 1);
+    const signedVal = val >= signBit ? val - (1 << bits) : val;
+    return (signedVal * (lsb || 1)).toFixed(3);
+  }
+  return (val * (lsb || 1)).toFixed(3);
+}
+
+// ─── PROMPT OUTPUT ───
+function updatePrompt() {
+  const sub = SUBSYSTEMS[state.subsystem];
+  const msg = sub.messages[state.messageIdx] || sub.messages[0];
+  const parts = [];
+
+  parts.push(`Explain the F-16 PDA Tool's data pipeline for the ${sub.name} subsystem (RT ${sub.rt}).`);
+
+  switch (state.stage) {
+    case 'ingest':
+      parts.push(`\nFocus on .C10 ingestion: how MIL-STD-1553B bus traffic is captured, demuxed by RT/SA, and normalized.`);
+      parts.push(`This subsystem uses ${sub.messages.length} message types (${sub.messages.map(m => `SA ${m.sa}: ${m.label}`).join(', ')}).`);
+      if (state.showDecoded) parts.push(`Show the decoded engineering-unit values alongside raw hex.`);
+      break;
+
+    case 'icd':
+      parts.push(`\nFocus on ICD parsing: how raw 1553 data words are decoded using bit-field definitions.`);
+      parts.push(`Current message: RT ${sub.rt}, SA ${msg.sa} (${msg.label}), ${msg.wc} words, ${msg.dir}.`);
+      parts.push(`Fields: ${msg.fields.map(f => `${f.name} [${f.bitsHi}:${f.bitsLo}] ${f.type}${f.lsb ? ' LSB=' + f.lsb : ''}`).join('; ')}.`);
+      if (state.lsbOverride !== null && msg.fields[0].lsb) {
+        parts.push(`Note: LSB scaling for "${msg.fields[0].name}" adjusted from ${msg.fields[0].lsb} to ${state.lsbOverride.toFixed(3)} to show sensitivity.`);
+      }
+      break;
+
+    case 'as3': {
+      const p = sub.requirements.filter(r => r.status === 'pass').length;
+      const f = sub.requirements.filter(r => r.status === 'fail').length;
+      const w = sub.requirements.filter(r => r.status === 'warn').length;
+      parts.push(`\nFocus on AS3 requirement evaluation: ${sub.requirements.length} requirements checked.`);
+      parts.push(`Results: ${p} PASS, ${f} FAIL, ${w} WARNING.`);
+      if (f > 0) {
+        const failures = sub.requirements.filter(r => r.status === 'fail');
+        parts.push(`Failed requirements: ${failures.map(r => `${r.id} (${r.text} — actual: ${r.actual}, threshold: ${r.threshold})`).join('; ')}.`);
+      }
+      break;
+    }
+
+    case 'aiml': {
+      const threshold = 1.0 - state.anomalySensitivity;
+      const classified = sub.anomalyData.map(d => ({ ...d, detected: d.value > threshold ? 'anomaly' : 'normal' }));
+      const anomalyCount = classified.filter(d => d.detected === 'anomaly').length;
+      parts.push(`\nFocus on AI/ML anomaly detection using Isolation Forest.`);
+      parts.push(`Contamination parameter: ${(state.anomalySensitivity * 100).toFixed(0)}% (threshold: ${threshold.toFixed(2)}).`);
+      parts.push(`Results: ${anomalyCount} anomalies detected out of ${classified.length} samples.`);
+      if (state.anomalySensitivity !== DEFAULTS.anomalySensitivity) {
+        parts.push(`Sensitivity adjusted from default ${(DEFAULTS.anomalySensitivity*100)}% to ${(state.anomalySensitivity*100).toFixed(0)}%.`);
+      }
+      break;
+    }
+  }
+
+  document.getElementById('prompt-text').textContent = parts.join('\n');
+}
+
+// ─── STATE MANAGEMENT ───
+function setState(key, value) {
+  state[key] = value;
+  if (key === 'subsystem') {
+    state.messageIdx = 0;
+    state.lsbOverride = null;
+  }
+  if (key === 'stage') {
+    state.lsbOverride = null;
+  }
+  updateAll();
+}
+
+function updateAll() {
+  renderPipeline();
+  renderSidebar();
+  renderContent();
+  updatePrompt();
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'COPIED';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'COPY BRIEFING';
+      btn.classList.remove('copied');
+    }, 1500);
+  });
+}
+
+// ─── INIT ───
+updateAll();
+</script>
+</body>
+</html>
