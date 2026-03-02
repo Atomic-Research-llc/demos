@@ -672,6 +672,174 @@
   .msg-chip:hover { border-color: var(--green-dim); color: var(--text); }
   .msg-chip.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,204,255,0.05); }
 
+  /* ─── B5 CROSS-CHANNEL ─── */
+  .xchan-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .chan-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 10px;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .chan-card.healthy { border-color: var(--green-dim); }
+  .chan-card.isolated { border-color: var(--red); background: rgba(255,68,68,0.04); }
+  .chan-card.selected { box-shadow: 0 0 12px rgba(0,255,65,0.15); border-color: var(--green-bright); }
+  .chan-card.dimmed { opacity: 0.35; filter: grayscale(0.5); transform: scale(0.97); }
+  .chan-card .chan-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--green-bright);
+    margin-bottom: 6px;
+  }
+  .chan-card.isolated .chan-label { color: var(--red); }
+  .chan-card .chan-val {
+    font-size: 18px;
+    color: var(--green-bright);
+    text-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+  .chan-card.isolated .chan-val { color: var(--red); text-shadow: 0 0 8px rgba(255,68,68,0.2); }
+  .chan-tag {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 1px 5px;
+    border: 1px solid;
+  }
+  .chan-tag.voter-sel { color: var(--green-bright); border-color: var(--green-bright); }
+  .chan-tag.iso { color: var(--red); border-color: var(--red); }
+
+  .tolerance-bar {
+    height: 6px;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    margin-top: 8px;
+    position: relative;
+    overflow: visible;
+  }
+  .tolerance-fill {
+    height: 100%;
+    transition: width 0.3s;
+  }
+  .tolerance-fill.ok { background: var(--green-dim); }
+  .tolerance-fill.warn { background: var(--amber); }
+  .tolerance-fill.fail { background: var(--red); }
+  .tolerance-markers {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 12px;
+    background: var(--amber);
+    opacity: 0.6;
+  }
+
+  /* FDIR Timeline */
+  .fdir-timeline {
+    position: relative;
+    margin: 16px 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+  .fdir-phase-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .fdir-phase-label {
+    width: 90px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-align: right;
+    padding-right: 12px;
+    flex-shrink: 0;
+  }
+  .fdir-phase-track {
+    flex: 1;
+    height: 24px;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .fdir-phase-bar {
+    position: absolute;
+    top: 2px;
+    height: 20px;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--bg-deep);
+    font-weight: 700;
+    transition: all 0.3s;
+  }
+  .fdir-phase-bar.detect { background: var(--amber); }
+  .fdir-phase-bar.isolate { background: var(--red); }
+  .fdir-phase-bar.recover { background: var(--cyan); }
+  .fdir-phase-bar.pass { opacity: 1; }
+  .fdir-phase-bar.fail { opacity: 1; background: repeating-linear-gradient(45deg, var(--red), var(--red) 4px, rgba(255,68,68,0.5) 4px, rgba(255,68,68,0.5) 8px); }
+  .fdir-deadline {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--red);
+    opacity: 0.5;
+  }
+  .fdir-phase-timing {
+    width: 80px;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-align: right;
+    padding-left: 8px;
+    flex-shrink: 0;
+  }
+  .fdir-phase-timing .margin-ok { color: var(--green-mid); }
+  .fdir-phase-timing .margin-tight { color: var(--amber); }
+  .fdir-phase-timing .margin-fail { color: var(--red); }
+
+  .fdir-axis {
+    display: flex;
+    margin-left: 90px;
+    padding-left: 12px;
+    margin-right: 80px;
+    padding-right: 8px;
+    font-size: 9px;
+    color: var(--text-dim);
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    padding-top: 4px;
+    margin-top: 4px;
+  }
+
+  /* Agreement sparkline */
+  .spark-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 40px;
+    margin: 8px 0;
+  }
+  .spark-bar {
+    flex: 1;
+    min-width: 3px;
+    max-width: 6px;
+    transition: height 0.2s;
+  }
+  .spark-bar.agree { background: var(--green-dim); }
+  .spark-bar.disagree { background: var(--red); }
+  .spark-bar.partial { background: var(--amber); }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg-deep); }
@@ -679,12 +847,12 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--green-mid); }
 </style>
 </head>
-<body>
+<body class="light-mode">
 
 <div id="header">
   <h1>F-16 PDA TOOL — DATA PIPELINE EXPLORER</h1>
   <div style="display:flex;align-items:center;gap:12px;">
-    <button id="theme-toggle" onclick="toggleTheme()">LIGHT MODE</button>
+    <button id="theme-toggle" onclick="toggleTheme()">DARK MODE</button>
     <div class="notional">ALL DATA NOTIONAL</div>
   </div>
 </div>
@@ -710,7 +878,9 @@ const STAGES = [
   { id: 'ingest',  label: '.C10 DATA',    num: '01' },
   { id: 'icd',     label: 'ICD PARSE',    num: '02' },
   { id: 'as3',     label: 'AS3 EVAL',     num: '03' },
-  { id: 'aiml',    label: 'AI/ML',        num: '04' }
+  { id: 'b5',      label: 'B5 EVAL',      num: '04' },
+  { id: 'aiml',    label: 'AI/ML',        num: '05' },
+  { id: 'viz',     label: 'VIDEO & VIZ',  num: '06' }
 ];
 
 const SUBSYSTEMS = {
@@ -845,6 +1015,76 @@ const SUBSYSTEMS = {
       { id: 'AS3-SMS-0071', text: 'Safe/Arm status shall be reported at ≥20 Hz', status: 'pass', actual: '25 Hz', threshold: '≥20 Hz', evidence: 'Consistent 25 Hz reporting confirmed' },
     ],
     anomalyData: generateAnomalyData(120, 0.06, 63)
+  },
+  flcs: {
+    name: 'Flight Control System',
+    short: 'FLCS',
+    rt: 6,
+    bus: 'FLCS_BUS',
+    // NOTIONAL — not derived from classified sources
+    channels: ['A', 'B', 'C', 'D'],
+    messages: [
+      {
+        sa: 1, dir: 'RT→BC', wc: 10, label: 'Surface Commands',
+        rawWords: ['1A40','1A3E','1A42','1A3F','0B20','0B1F','0B22','0B20','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 0, name: 'Pitch Cmd Ch-A', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-a' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'Pitch Cmd Ch-B', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-a' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Pitch Cmd Ch-C', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-a' },
+          { word: 3, bitsHi: 15, bitsLo: 0, name: 'Pitch Cmd Ch-D', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-a' },
+          { word: 4, bitsHi: 15, bitsLo: 0, name: 'Roll Cmd Ch-A', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-b' },
+          { word: 5, bitsHi: 15, bitsLo: 0, name: 'Roll Cmd Ch-B', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-b' },
+          { word: 6, bitsHi: 15, bitsLo: 0, name: 'Roll Cmd Ch-C', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-b' },
+          { word: 7, bitsHi: 15, bitsLo: 0, name: 'Roll Cmd Ch-D', type: 'Signed', lsb: 0.00275, unit: 'deg', cls: 'field-b' },
+        ]
+      },
+      {
+        sa: 4, dir: 'RT→BC', wc: 8, label: 'FCC Status/Voter',
+        rawWords: ['F003','E003','F003','D001','8042','0000','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 12, name: 'Ch-A Health', type: 'Enum', enums: ['FAIL','DGRD','','','','','','','','','','','','','','OK'], cls: 'field-c' },
+          { word: 0, bitsHi: 1, bitsLo: 0, name: 'Ch-A Voter', type: 'Enum', enums: ['EXCL','INCL','SOLO','SEL'], cls: 'field-d' },
+          { word: 1, bitsHi: 15, bitsLo: 12, name: 'Ch-B Health', type: 'Enum', enums: ['FAIL','DGRD','','','','','','','','','','','','','','OK'], cls: 'field-c' },
+          { word: 1, bitsHi: 1, bitsLo: 0, name: 'Ch-B Voter', type: 'Enum', enums: ['EXCL','INCL','SOLO','SEL'], cls: 'field-d' },
+          { word: 2, bitsHi: 15, bitsLo: 12, name: 'Ch-C Health', type: 'Enum', enums: ['FAIL','DGRD','','','','','','','','','','','','','','OK'], cls: 'field-c' },
+          { word: 2, bitsHi: 1, bitsLo: 0, name: 'Ch-C Voter', type: 'Enum', enums: ['EXCL','INCL','SOLO','SEL'], cls: 'field-d' },
+          { word: 3, bitsHi: 15, bitsLo: 12, name: 'Ch-D Health', type: 'Enum', enums: ['FAIL','DGRD','','','','','','','','','','','','','','OK'], cls: 'field-c' },
+          { word: 3, bitsHi: 1, bitsLo: 0, name: 'Ch-D Voter', type: 'Enum', enums: ['EXCL','INCL','SOLO','SEL'], cls: 'field-d' },
+          { word: 4, bitsHi: 15, bitsLo: 15, name: 'Voter Valid', type: 'Discrete', enums: ['INVAL','VALID'], cls: 'field-a' },
+          { word: 4, bitsHi: 6, bitsLo: 0, name: 'FDIR State', type: 'Enum', enums: ['NOMINAL','DETECT','ISOLATE','RECOVER','DEGRADED'], cls: 'field-d' },
+        ]
+      }
+    ],
+    // B5 sub-system level requirements — 41 total (NOTIONAL)
+    // Covers 7+ rule types: cross_channel, fdir_timing, fdir_coverage, state_transition,
+    //   authority_limit, rate_of_change, gain_schedule, tracking_error, timing, conditional
+    requirements: [
+      { id: 'B5-FCC-0010', text: 'Pitch command cross-channel agreement within 0.05 deg', status: 'pass', actual: '0.008 deg', threshold: '≤0.05 deg', evidence: '4-channel max deviation 0.008 deg across 12,000 frames', ruleType: 'cross_channel' },
+      { id: 'B5-FCC-0022', text: 'Roll command cross-channel agreement within 0.05 deg', status: 'pass', actual: '0.011 deg', threshold: '≤0.05 deg', evidence: '4-channel max deviation 0.011 deg across 12,000 frames', ruleType: 'cross_channel' },
+      { id: 'B5-FCC-0035', text: 'Voter output shall track median of included channels', status: 'pass', actual: 'Tracked', threshold: 'Median ± 0.01', evidence: 'Voter output matched channel median within 0.003 deg for all frames', ruleType: 'cross_channel' },
+      { id: 'B5-FCC-0048', text: 'FDIR detection phase shall complete within 3 frames', status: 'pass', actual: '2 frames', threshold: '≤3 frames', evidence: 'Detection completed in 2 frames at t=89.4s', ruleType: 'fdir_timing' },
+      { id: 'B5-FCC-0055', text: 'FDIR isolation phase shall complete within 50ms', status: 'fail', actual: '62ms', threshold: '≤50ms', evidence: 'Ch-D isolation took 62ms at t=89.4s due to voter re-sync delay', ruleType: 'fdir_timing' },
+      { id: 'B5-FCC-0061', text: 'FDIR recovery shall restore 3-channel ops within 100ms', status: 'pass', actual: '78ms', threshold: '≤100ms', evidence: 'Recovery to 3-channel mode in 78ms', ruleType: 'fdir_timing' },
+      { id: 'B5-FCC-0074', text: 'No single channel failure shall cause loss of control', status: 'pass', actual: 'Maintained', threshold: 'No loss', evidence: 'Control authority maintained through Ch-D isolation event', ruleType: 'fdir_coverage' },
+      { id: 'B5-FCC-0088', text: 'Pitch authority limited to ±25 deg in normal law', status: 'pass', actual: '±22.3 deg', threshold: '±25 deg', evidence: 'Max deflection 22.3 deg observed at t=201.7s', ruleType: 'authority_limit' },
+      { id: 'B5-FCC-0095', text: 'Pitch rate shall not exceed 40 deg/s in normal law', status: 'pass', actual: '31.2 deg/s', threshold: '≤40 deg/s', evidence: 'Max pitch rate 31.2 deg/s at t=156.1s during pull-up', ruleType: 'rate_of_change' },
+      { id: 'B5-FCC-0102', text: 'FLCS shall transition STBY→OPER within 500ms of WOW release', status: 'pass', actual: '340ms', threshold: '≤500ms', evidence: 'State transition completed 340ms after weight-on-wheels release', ruleType: 'state_transition' },
+      { id: 'B5-FCC-0110', text: 'Pitch gain shall match schedule ±5% at Mach 0.9, 15k ft', status: 'pass', actual: '2.3% deviation', threshold: '±5%', evidence: 'Gain schedule lookup matched within 2.3% at flight condition', ruleType: 'gain_schedule' },
+      { id: 'B5-FCC-0118', text: 'Surface position shall track command within 0.5 deg within 100ms', status: 'warn', actual: '0.42 deg @ 95ms', threshold: '≤0.5 deg in ≤100ms', evidence: 'Tracking error 0.42 deg at 95ms, within limits but tight margin', ruleType: 'tracking_error' },
+    ],
+    // Cross-channel correlation data (NOTIONAL)
+    crossChannelData: generateCrossChannelData(80, 37),
+    // FDIR scenario data (NOTIONAL)
+    fdirScenario: {
+      triggerTime: 89.4,
+      faultChannel: 'D',
+      phases: [
+        { name: 'DETECT', start: 89.4, end: 89.45, status: 'pass', detail: '2 frames, Ch-D pitch deviation >0.1 deg' },
+        { name: 'ISOLATE', start: 89.45, end: 89.512, status: 'fail', detail: '62ms (limit 50ms), voter exclusion delayed' },
+        { name: 'RECOVER', start: 89.512, end: 89.59, status: 'pass', detail: '78ms to 3-channel stability' }
+      ]
+    },
+    anomalyData: generateAnomalyData(120, 0.04, 29)
   }
 };
 
@@ -864,6 +1104,29 @@ function generateAnomalyData(count, contamination, seed) {
   return data;
 }
 
+// NOTIONAL — not derived from classified sources
+function generateCrossChannelData(count, seed) {
+  const data = [];
+  let s = seed;
+  function rand() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }
+  for (let i = 0; i < count; i++) {
+    const t = (i * 0.025).toFixed(3); // 40 Hz frame rate
+    const base = 5.0 + Math.sin(i * 0.08) * 3.0; // baseline pitch command
+    const noise = () => (rand() - 0.5) * 0.02;
+    // Ch-D diverges around frame 60-65 (the FDIR trigger zone)
+    const dDrift = (i >= 58 && i < 66) ? (i - 58) * 0.025 : 0;
+    data.push({
+      time: parseFloat(t),
+      chA: parseFloat((base + noise()).toFixed(4)),
+      chB: parseFloat((base + noise()).toFixed(4)),
+      chC: parseFloat((base + noise()).toFixed(4)),
+      chD: parseFloat((base + noise() + dDrift).toFixed(4)),
+      agree: dDrift < 0.05
+    });
+  }
+  return data;
+}
+
 // ─── STATE ───
 const state = {
   stage: 'ingest',
@@ -873,6 +1136,10 @@ const state = {
   anomalySensitivity: 0.10,
   lsbOverride: null,
   showExplanations: true,
+  b5Channel: null,       // null = all channels, or 'A','B','C','D'
+  b5View: 'xchan',       // 'xchan' | 'fdir' | 'reqs'
+  xchanTolerance: 0.05,  // cross-channel agreement threshold (deg)
+  vizView: 'video',      // 'video' | 'timeline' | 'annotations'
 };
 
 const DEFAULTS = { ...state };
@@ -958,6 +1225,79 @@ function renderSidebar() {
     }
   }
 
+  if (state.stage === 'b5') {
+    // Auto-switch to FLCS if not already
+    if (state.subsystem !== 'flcs') {
+      state.subsystem = 'flcs';
+      state.messageIdx = 0;
+    }
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">B5 VIEW</div>
+      <button class="ctrl-btn ${state.b5View === 'xchan' ? 'active' : ''}" onclick="setState('b5View','xchan')">
+        CROSS-CHANNEL
+        <span class="btn-sub">4-channel correlation</span>
+      </button>
+      <button class="ctrl-btn ${state.b5View === 'fdir' ? 'active' : ''}" onclick="setState('b5View','fdir')">
+        FDIR TIMELINE
+        <span class="btn-sub">Detect / Isolate / Recover</span>
+      </button>
+      <button class="ctrl-btn ${state.b5View === 'reqs' ? 'active' : ''}" onclick="setState('b5View','reqs')">
+        B5 REQUIREMENTS
+        <span class="btn-sub">Sub-system pass/fail</span>
+      </button>
+    </div>`;
+
+    if (state.b5View === 'xchan') {
+      html += `<div class="ctrl-section">
+        <div class="ctrl-label">CHANNEL FILTER</div>
+        <button class="ctrl-btn ${state.b5Channel === null ? 'active' : ''}" onclick="setState('b5Channel', null)">
+          ALL CHANNELS
+          <span class="btn-sub">A + B + C + D overlay</span>
+        </button>
+        ${['A','B','C','D'].map(ch => `
+          <button class="ctrl-btn ${state.b5Channel === ch ? 'active' : ''}" onclick="setState('b5Channel','${ch}')">
+            CHANNEL ${ch}
+            <span class="btn-sub">FCC Ch-${ch} isolated view</span>
+          </button>
+        `).join('')}
+      </div>`;
+
+      html += `<div class="ctrl-section">
+        <div class="ctrl-label">AGREEMENT TOLERANCE</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">
+          Cross-channel deviation threshold
+        </div>
+        <div class="slider-row">
+          <input type="range" min="0.01" max="0.20" step="0.005"
+            value="${state.xchanTolerance}"
+            oninput="setState('xchanTolerance', parseFloat(this.value))">
+          <span class="slider-val">${state.xchanTolerance.toFixed(3)} deg</span>
+        </div>
+        <div style="font-size:9px;color:var(--text-dim);margin-top:4px">
+          B5 spec: 0.05 deg max deviation
+        </div>
+      </div>`;
+    }
+  }
+
+  if (state.stage === 'viz') {
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">VISUALIZATION VIEW</div>
+      <button class="ctrl-btn ${state.vizView === 'video' ? 'active' : ''}" onclick="setState('vizView','video')">
+        VIDEO PLAYBACK
+        <span class="btn-sub">Chapter 10 video + HUD overlay</span>
+      </button>
+      <button class="ctrl-btn ${state.vizView === 'timeline' ? 'active' : ''}" onclick="setState('vizView','timeline')">
+        TIMELINE
+        <span class="btn-sub">Parameter plots + brush/zoom</span>
+      </button>
+      <button class="ctrl-btn ${state.vizView === 'annotations' ? 'active' : ''}" onclick="setState('vizView','annotations')">
+        ANNOTATIONS
+        <span class="btn-sub">Flight markers + categories</span>
+      </button>
+    </div>`;
+  }
+
   if (state.stage === 'aiml') {
     html += `<div class="ctrl-section">
       <div class="ctrl-label">ANOMALY SENSITIVITY</div>
@@ -992,7 +1332,9 @@ function renderSidebar() {
       <button class="preset-btn" onclick="applyPreset('overview')">OVERVIEW</button>
       <button class="preset-btn" onclick="applyPreset('decode')">DECODE</button>
       <button class="preset-btn" onclick="applyPreset('reqcheck')">REQ CHECK</button>
+      <button class="preset-btn" onclick="applyPreset('b5fcc')">B5 / FCC</button>
       <button class="preset-btn" onclick="applyPreset('anomaly')">ANOMALY</button>
+      <button class="preset-btn" onclick="applyPreset('viz')">VIDEO/VIZ</button>
     </div>
   </div>`;
 
@@ -1013,9 +1355,17 @@ function applyPreset(name) {
     case 'reqcheck':
       state.stage = 'as3'; state.subsystem = 'radar'; state.showExplanations = true;
       break;
+    case 'b5fcc':
+      state.stage = 'b5'; state.subsystem = 'flcs'; state.b5View = 'xchan';
+      state.b5Channel = null; state.xchanTolerance = 0.05;
+      state.showExplanations = true;
+      break;
     case 'anomaly':
       state.stage = 'aiml'; state.subsystem = 'radar'; state.anomalySensitivity = 0.10;
       state.showExplanations = true;
+      break;
+    case 'viz':
+      state.stage = 'viz'; state.vizView = 'video'; state.showExplanations = true;
       break;
   }
   updateAll();
@@ -1028,7 +1378,9 @@ function renderContent() {
     case 'ingest': el.innerHTML = renderIngest(); break;
     case 'icd':    el.innerHTML = renderICD(); break;
     case 'as3':    el.innerHTML = renderAS3(); break;
+    case 'b5':     el.innerHTML = renderB5(); break;
     case 'aiml':   el.innerHTML = renderAIML(); break;
+    case 'viz':    el.innerHTML = renderViz(); break;
   }
 }
 
@@ -1041,8 +1393,9 @@ function renderIngest() {
   html += `<div class="content-title">STAGE 01: .C10 FLIGHT DATA INGESTION</div>`;
   html += `<div class="content-desc">
     Chapter 10 (IRIG 106) files contain time-stamped recordings of all MIL-STD-1553B bus traffic
-    captured during flight test. Each message is identified by its Remote Terminal (RT) address,
-    Subaddress (SA), and transfer direction.
+    and video channels captured during flight test. Each 1553 message is identified by its Remote Terminal (RT) address,
+    Subaddress (SA), and transfer direction. Video packets (Type 0xF0) are extracted in parallel for
+    synchronized playback.
   </div>`;
 
   if (state.showExplanations) {
@@ -1052,6 +1405,11 @@ function renderIngest() {
       Each message has a <code>timestamp</code>, <code>bus (A/B)</code>, <code>RT address</code> (0-30),
       <code>subaddress</code> (1-30), <code>T/R bit</code> (transmit/receive), and up to 32 <code>data words</code> (16 bits each).
       The tool normalizes these into an internal time-indexed representation for downstream analysis.
+      <br><br>
+      <strong>Video extraction:</strong> Chapter 10 video packets (Type 0xF0) are demuxed by channel ID,
+      re-encoded to H.264 for browser playback, and time-aligned with 1553 bus data. Gap detection identifies
+      missing frames. The <code>VideoExtractor</code> produces per-channel MP4 files with timeline metadata
+      for synchronized HUD telemetry overlay.
     </div>`;
   }
 
@@ -1061,19 +1419,19 @@ function renderIngest() {
       <div class="flow-title">.C10 FILE</div>
       <div class="flow-detail">
         IRIG 106 Ch.10<br>
-        Raw bus capture<br>
-        Time-stamped<br>
-        ${sub.messages.length} msg types
+        1553 bus capture<br>
+        Video packets (F0)<br>
+        Time-stamped
       </div>
     </div>
     <div class="flow-connector">▶</div>
     <div class="flow-box">
       <div class="flow-title">DEMUX</div>
       <div class="flow-detail">
-        Separate by RT/SA<br>
+        1553: RT/SA split<br>
+        Video: channel split<br>
         Validate checksums<br>
-        Check continuity<br>
-        Flag bus errors
+        Gap detection
       </div>
     </div>
     <div class="flow-connector">▶</div>
@@ -1082,18 +1440,18 @@ function renderIngest() {
       <div class="flow-detail">
         Time-align msgs<br>
         Index by RT/SA<br>
-        Store as internal<br>
-        message objects
+        Video → H.264 MP4<br>
+        HUD metadata sync
       </div>
     </div>
     <div class="flow-connector">▶</div>
     <div class="flow-box">
       <div class="flow-title">OUTPUT</div>
       <div class="flow-detail">
-        Time-series DB<br>
-        HDF5 / Parquet<br>
-        Ready for ICD<br>
-        parsing stage
+        Time-series store<br>
+        Video files + timeline<br>
+        Annotation anchors<br>
+        Ready for analysis
       </div>
     </div>
   </div>`;
@@ -1351,13 +1709,319 @@ function renderAS3() {
   return html;
 }
 
-// ─── STAGE 4: AI/ML ───
+// ─── STAGE 4: B5 FCC EVALUATION ───
+function renderB5() {
+  const sub = SUBSYSTEMS.flcs;
+  let html = '';
+
+  html += `<div class="content-title">STAGE 04: B5 SUB-SYSTEM REQUIREMENT EVALUATION</div>`;
+  html += `<div class="content-desc">
+    B5 requirements govern the Flight Control Computer (FCC) at sub-system level, covering quad-redundant
+    channel correlation, voter logic, gain schedules, authority limits, and FDIR (Failure Detection,
+    Isolation, and Recovery) sequences. These run in parallel with AS3 system-level evaluation.
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">HOW B5 EVALUATION WORKS</div>
+      The F-16 FLCS uses four independent FCC channels (A, B, C, D) for safety-critical redundancy.
+      The PDA Tool's <code>CrossChannelEvaluator</code> runs alongside the AS3 <code>RequirementEvaluator</code>.
+      It time-aligns data from all four channels using a <code>ChannelFrameBuffer</code> (2ms tolerance window),
+      then compares per-field values against B5 tolerances. A separate <code>FDIRSequenceTracker</code> state machine
+      verifies that failure detection, isolation, and recovery phases meet timing and coverage requirements.
+      <br><br>
+      <strong>Expanded B5 pipeline (v2):</strong> The evaluator now supports <strong>41 requirements</strong> across
+      <strong>10+ rule types</strong>: <code>cross_channel</code>, <code>fdir_timing</code>, <code>fdir_coverage</code>,
+      <code>state_transition</code>, <code>authority_limit</code>, <code>rate_of_change</code>,
+      <code>gain_schedule</code>, <code>tracking_error</code>, <code>timing</code>, and <code>conditional</code>.
+      <br><br>
+      The FLCS ICD now covers <strong>SA1-SA7</strong> plus Voter SA2: surface commands, FCC status,
+      control law state, rate/accel feedback, pilot inputs, surface position feedback, and air data.
+      A <code>B5ChannelFieldCache</code> provides cross-SA correlation with staleness tracking,
+      and a <code>ChannelStateTracker</code> maintains temporal state for state machine validation.
+      Derivative monitoring uses a <code>DerivativeComputer</code> for rate-of-change checks, and
+      a <code>TransientAnalyzer</code> detects step responses and settling times.
+      <br><br>
+      Key difference from AS3: B5 requirements use <code>bus_name</code> to distinguish FLCS bus traffic from the
+      avionics mux bus, and the ICD lookup is bus-qualified: <code>(bus_name, rt, sa, direction)</code>.
+    </div>`;
+  }
+
+  if (state.b5View === 'xchan') {
+    html += renderB5CrossChannel(sub);
+  } else if (state.b5View === 'fdir') {
+    html += renderB5FDIR(sub);
+  } else {
+    html += renderB5Requirements(sub);
+  }
+
+  return html;
+}
+
+function renderB5CrossChannel(sub) {
+  let html = '';
+  const data = sub.crossChannelData;
+  const tol = state.xchanTolerance;
+
+  html += `<div class="section-header">CROSS-CHANNEL CORRELATION — PITCH COMMAND</div>`;
+
+  // Channel cards (quad grid)
+  const lastFrame = data[data.length - 1];
+  const channels = ['A','B','C','D'];
+  const vals = [lastFrame.chA, lastFrame.chB, lastFrame.chC, lastFrame.chD];
+  const median = (() => { const s = [...vals].sort((a,b) => a - b); return (s[1] + s[2]) / 2; })();
+
+  html += `<div class="xchan-grid">`;
+  channels.forEach((ch, i) => {
+    const val = vals[i];
+    const dev = Math.abs(val - median);
+    const healthy = dev < tol;
+    const selected = state.b5Channel === ch || state.b5Channel === null;
+    const dimmed = state.b5Channel !== null && state.b5Channel !== ch;
+    const cls = [
+      'chan-card',
+      healthy ? 'healthy' : 'isolated',
+      selected ? 'selected' : '',
+      dimmed ? 'dimmed' : ''
+    ].join(' ');
+
+    html += `<div class="${cls}" onclick="setState('b5Channel', state.b5Channel === '${ch}' ? null : '${ch}')">
+      <div class="chan-label">CH-${ch}</div>
+      <div class="chan-val">${val.toFixed(4)} deg</div>
+      <div style="font-size:9px;color:var(--text-dim);margin-top:4px">
+        &Delta; ${dev.toFixed(4)} from median
+      </div>
+      <div style="margin-top:6px;height:4px;border-radius:2px;background:var(--bg-deep);overflow:hidden">
+        <div style="width:${Math.min(100, (dev / tol) * 100)}%;height:100%;background:${healthy ? 'var(--green-dim)' : 'var(--red)'};border-radius:2px"></div>
+      </div>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:2px">${(dev / tol * 100).toFixed(0)}% of tolerance</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Agreement sparkline
+  const sparkWidth = 600;
+  const barW = Math.max(2, Math.floor(sparkWidth / data.length));
+  html += `<div style="margin-top:16px">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;letter-spacing:1px">AGREEMENT TIMELINE</div>
+    <div class="agreement-spark" style="display:flex;gap:1px;height:20px;align-items:end">
+      ${data.map((d, i) => {
+        const devs = [d.chA, d.chB, d.chC, d.chD];
+        const med = (() => { const s = [...devs].sort((a,b) => a-b); return (s[1] + s[2]) / 2; })();
+        const maxDev = Math.max(...devs.map(v => Math.abs(v - med)));
+        const ok = maxDev < tol;
+        return `<div class="spark-bar ${ok ? 'agree' : 'disagree'}" style="width:${barW}px;height:${Math.max(3, Math.min(20, (maxDev / tol) * 20))}px" title="t=${d.time}s dev=${maxDev.toFixed(4)}"></div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text-dim);margin-top:2px">
+      <span>t=0s</span><span>t=${data[data.length-1].time}s</span>
+    </div>
+  </div>`;
+
+  // Voter status
+  html += `<div style="margin-top:16px">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">VOTER STATUS</div>
+    <table class="req-table">
+      <thead><tr><th>Property</th><th>Value</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Active Channels</td><td>A, B, C (D isolated)</td><td><span class="req-warn">3 OF 4</span></td></tr>
+        <tr><td>Selection Algorithm</td><td>Median of included</td><td><span class="req-pass">NOMINAL</span></td></tr>
+        <tr><td>Voter Output</td><td>${median.toFixed(4)} deg</td><td><span class="req-pass">VALID</span></td></tr>
+        <tr><td>Max Channel Deviation</td><td>${Math.max(...vals.map(v => Math.abs(v - median))).toFixed(4)} deg</td>
+            <td><span class="${Math.max(...vals.map(v => Math.abs(v - median))) < tol ? 'req-pass' : 'req-fail'}">${Math.max(...vals.map(v => Math.abs(v - median))) < tol ? 'WITHIN TOL' : 'EXCEEDS TOL'}</span></td></tr>
+      </tbody>
+    </table>
+  </div>`;
+
+  return html;
+}
+
+function renderB5FDIR(sub) {
+  let html = '';
+  const scenario = sub.fdirScenario;
+
+  html += `<div class="section-header">FDIR SEQUENCE — CH-${scenario.faultChannel} FAULT EVENT</div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">FDIR STATE MACHINE</div>
+      The <code>FDIRSequenceTracker</code> monitors each FCC channel independently. When a channel's output
+      deviates beyond tolerance, the state machine progresses through three phases:
+      <strong>DETECT</strong> (confirm fault within 3 frames),
+      <strong>ISOLATE</strong> (exclude channel from voter within 50ms),
+      <strong>RECOVER</strong> (stabilize on remaining channels within 100ms).
+      Each phase has invariants (e.g., control authority maintained during isolation).
+      Cascade policies handle overlapping faults: <code>spawn_new</code>, <code>queue</code>, or <code>reject</code>.
+    </div>`;
+  }
+
+  // FDIR Timeline (Gantt-style)
+  const totalSpan = scenario.phases[scenario.phases.length - 1].end - scenario.phases[0].start;
+  const timelineStart = scenario.phases[0].start;
+
+  html += `<div class="fdir-timeline">`;
+  scenario.phases.forEach(phase => {
+    const left = ((phase.start - timelineStart) / totalSpan) * 100;
+    const width = ((phase.end - phase.start) / totalSpan) * 100;
+    const phaseCls = phase.name.toLowerCase();
+    const duration = ((phase.end - phase.start) * 1000).toFixed(0);
+    html += `<div class="fdir-phase-row">
+      <div class="fdir-phase-label" style="width:80px;font-size:10px;letter-spacing:1px;color:var(--text-dim)">${phase.name}</div>
+      <div style="flex:1;position:relative;height:24px;background:var(--bg-deep);border-radius:3px;overflow:hidden">
+        <div class="fdir-phase-bar ${phaseCls}"
+             style="position:absolute;left:${left}%;width:${width}%;height:100%;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold">
+          ${duration}ms
+        </div>
+      </div>
+      <div style="width:60px;text-align:right">
+        <span class="${phase.status === 'pass' ? 'req-pass' : 'req-fail'}">${phase.status === 'pass' ? 'PASS' : 'FAIL'}</span>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // FDIR timing table
+  html += `<div style="margin-top:16px">
+    <table class="req-table">
+      <thead><tr><th>Phase</th><th>Start</th><th>End</th><th>Duration</th><th>Limit</th><th>Status</th></tr></thead>
+      <tbody>
+        ${scenario.phases.map(p => {
+          const dur = ((p.end - p.start) * 1000).toFixed(1);
+          const limits = { DETECT: '75ms (3 frames)', ISOLATE: '50ms', RECOVER: '100ms' };
+          return `<tr>
+            <td style="font-weight:bold">${p.name}</td>
+            <td>${p.start.toFixed(3)}s</td>
+            <td>${p.end.toFixed(3)}s</td>
+            <td>${dur}ms</td>
+            <td>${limits[p.name]}</td>
+            <td><span class="${p.status === 'pass' ? 'req-pass' : 'req-fail'}">${p.status === 'pass' ? 'PASS' : 'FAIL'}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  // Phase invariants
+  html += `<div style="margin-top:16px">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">PHASE INVARIANTS</div>
+    <table class="req-table">
+      <thead><tr><th>Invariant</th><th>Phase</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Control authority maintained</td><td>ALL</td><td><span class="req-pass">PASS</span></td></tr>
+        <tr><td>Voter output continuous</td><td>ISOLATE</td><td><span class="req-pass">PASS</span></td></tr>
+        <tr><td>Excluded channel not in voter</td><td>RECOVER</td><td><span class="req-pass">PASS</span></td></tr>
+        <tr><td>3-channel convergence</td><td>RECOVER</td><td><span class="req-pass">PASS</span></td></tr>
+      </tbody>
+    </table>
+  </div>`;
+
+  // Channel health matrix
+  html += `<div style="margin-top:16px">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">CHANNEL HEALTH MATRIX — POST-FDIR</div>
+    <div class="xchan-grid">
+      ${['A','B','C','D'].map(ch => {
+        const isFault = ch === scenario.faultChannel;
+        return `<div class="chan-card ${isFault ? 'isolated' : 'healthy'}">
+          <div class="chan-label">CH-${ch}</div>
+          <div style="font-size:11px;margin-top:4px;color:${isFault ? 'var(--red)' : 'var(--green-mid)'}">
+            ${isFault ? 'ISOLATED' : 'ACTIVE'}
+          </div>
+          <div style="font-size:9px;color:var(--text-dim);margin-top:4px">
+            Voter: ${isFault ? 'EXCLUDED' : 'INCLUDED'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  return html;
+}
+
+function renderB5Requirements(sub) {
+  let html = '';
+
+  html += `<div class="section-header">B5 SUB-SYSTEM REQUIREMENTS — FCC</div>`;
+
+  const p = sub.requirements.filter(r => r.status === 'pass').length;
+  const f = sub.requirements.filter(r => r.status === 'fail').length;
+  const w = sub.requirements.filter(r => r.status === 'warn').length;
+
+  html += `<div class="summary-row">
+    <div class="summary-box pass"><div class="summary-val">${p}</div><div class="summary-label">PASS</div></div>
+    <div class="summary-box fail"><div class="summary-val">${f}</div><div class="summary-label">FAIL</div></div>
+    <div class="summary-box warn"><div class="summary-val">${w}</div><div class="summary-label">WARN</div></div>
+    <div class="summary-box"><div class="summary-val">${sub.requirements.length}</div><div class="summary-label">TOTAL</div></div>
+  </div>`;
+
+  html += `<table class="req-table">
+    <thead><tr><th>Req ID</th><th>Rule Type</th><th>Requirement</th><th>Actual</th><th>Threshold</th><th>Status</th></tr></thead>
+    <tbody>
+      ${sub.requirements.map(r => `
+        <tr>
+          <td><code>${r.id}</code></td>
+          <td><span style="font-size:9px;color:var(--cyan)">${(r.ruleType || 'cross_channel').replace(/_/g, ' ')}</span></td>
+          <td>${r.text}</td>
+          <td>${r.actual}</td>
+          <td>${r.threshold}</td>
+          <td><span class="req-${r.status}">${r.status.toUpperCase()}</span></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>`;
+
+  // Rule type summary
+  const ruleTypes = {};
+  sub.requirements.forEach(r => { const t = r.ruleType || 'cross_channel'; ruleTypes[t] = (ruleTypes[t] || 0) + 1; });
+  html += `<div style="margin-top:12px">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">RULE TYPE DISTRIBUTION (showing ${sub.requirements.length} of 41 total)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${Object.entries(ruleTypes).map(([type, count]) => `
+        <div style="background:var(--bg-surface);border:1px solid var(--border);padding:4px 10px;font-size:10px">
+          <span style="color:var(--cyan)">${type.replace(/_/g, ' ')}</span>
+          <span style="color:var(--text-dim);margin-left:4px">x${count}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+
+  // Evidence section
+  html += `<div style="margin-top:16px">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">EVIDENCE TRACE</div>
+    ${sub.requirements.map(r => `
+      <div style="padding:6px 8px;margin-bottom:4px;background:var(--bg-surface);border-left:3px solid ${r.status === 'pass' ? 'var(--green-dim)' : r.status === 'fail' ? 'var(--red)' : 'var(--amber)'};font-size:11px">
+        <code style="color:var(--cyan)">${r.id}</code>: ${r.evidence}
+      </div>
+    `).join('')}
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">B5 vs AS3 REQUIREMENTS</div>
+      <strong>AS3</strong> requirements define <em>system-level</em> behavior ("the radar shall display target range...").
+      <strong>B5</strong> requirements define <em>sub-system-level</em> FCC behavior ("cross-channel agreement within 0.05 deg").
+      <br><br>
+      In the pipeline, both evaluators run in parallel. The <code>spec_type</code> field on each
+      <code>RequirementResult</code> distinguishes "AS3" from "B5" results. Both feed into the unified
+      <code>EvaluationReport</code> for the final dashboard.
+      <br><br>
+      <strong>Rule type coverage:</strong> The B5 evaluator now supports 10+ rule types.
+      <code>cross_channel</code> and <code>fdir_timing</code> rules use the <code>CrossChannelEvaluator</code> and
+      <code>FDIRSequenceTracker</code>. Newer rule types like <code>rate_of_change</code> use the
+      <code>DerivativeComputer</code>, <code>gain_schedule</code> uses lookup tables keyed by flight condition,
+      and <code>tracking_error</code> compares command vs. feedback signals with time-domain settling criteria.
+    </div>`;
+  }
+
+  return html;
+}
+
+// ─── STAGE 5: AI/ML ───
 function renderAIML() {
   const sub = SUBSYSTEMS[state.subsystem];
   const sensitivity = state.anomalySensitivity;
   let html = '';
 
-  html += `<div class="content-title">STAGE 04: AI/ML ANOMALY DETECTION</div>`;
+  html += `<div class="content-title">STAGE 05: AI/ML ANOMALY DETECTION</div>`;
   html += `<div class="content-desc">
     Beyond rule-based AS3 checks, the AI/ML engine uses Isolation Forest to detect
     subtle anomalies in parameter behavior that may indicate unreported issues.
@@ -1372,6 +2036,16 @@ function renderAIML() {
       the expected proportion of anomalies — higher values flag more points, increasing
       sensitivity but also false positives. The algorithm scores each sample from 0.0 (normal)
       to 1.0 (anomalous). Points above the threshold are flagged for engineer review.
+      <br><br>
+      <strong>Severity classification:</strong> Each anomaly is assigned a severity level
+      (<code>LOW</code>, <code>MEDIUM</code>, <code>HIGH</code>, <code>CRITICAL</code>) based on
+      Z-score magnitude and parameter criticality. The <code>AnomalyReport</code> tracks true totals
+      even when capping stored details at 10,000 for memory efficiency, so the UI correctly shows
+      "16,009+ anomalies" rather than a misleading exact count.
+      <br><br>
+      <strong>Cluster detection:</strong> A post-processing pass groups related anomalies (3+
+      of the same type within 5 seconds) into clusters, helping engineers distinguish isolated
+      events from systemic issues. Clusters are surfaced as callouts in the Anomalies dashboard.
     </div>`;
   }
 
@@ -1512,7 +2186,285 @@ function getFeatureImportance(subsystem) {
       { name: 'Arm Status', importance: 0.25 },
     ],
   };
+  // FLCS uses radar as fallback since B5 anomalies are handled by the CrossChannelEvaluator
   return features[subsystem] || features.radar;
+}
+
+// ─── STAGE 6: VIDEO & VISUALIZATION ───
+function renderViz() {
+  let html = '';
+
+  html += `<div class="content-title">STAGE 06: VIDEO & VISUALIZATION</div>`;
+  html += `<div class="content-desc">
+    The visualization layer provides synchronized video playback with HUD telemetry overlay,
+    interactive parameter timelines with brush/zoom, and an annotation system for marking
+    and categorizing flight events. All views are time-linked for cross-referencing.
+  </div>`;
+
+  if (state.vizView === 'video') {
+    html += renderVizVideo();
+  } else if (state.vizView === 'timeline') {
+    html += renderVizTimeline();
+  } else {
+    html += renderVizAnnotations();
+  }
+
+  return html;
+}
+
+function renderVizVideo() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">VIDEO PLAYBACK PIPELINE</div>
+      Chapter 10 video packets (Type 0xF0) are extracted per channel during ingestion.
+      The <code>VideoExtractor</code> re-encodes MPEG-2 streams to H.264 MP4 for browser compatibility.
+      Timeline metadata maps video frames to recording timestamps, enabling time-synchronized
+      playback with 1553 bus data. Gap detection identifies dropped frames.
+      <br><br>
+      The <strong>HUD overlay</strong> renders real-time telemetry parameters directly on the video:
+      altitude, airspeed, heading, Mach number, G-loading, and AOA. Values update via zero-order-hold
+      from the nearest 1553 sample. The overlay uses a green-on-dark theme matching cockpit displays,
+      toggled with the <code>H</code> key.
+    </div>`;
+  }
+
+  // Simulated video layout
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">VIDEO PLAYBACK — CHANNEL 1</div>
+    <div style="background:#000;border:1px solid var(--border);padding:0;position:relative;width:100%;max-width:640px;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden">
+      <div style="color:var(--text-dim);font-size:12px;letter-spacing:2px">SYNTHETIC VIDEO FEED</div>
+      <!-- HUD overlay simulation -->
+      <div style="position:absolute;top:12px;left:12px;font-size:10px;font-family:var(--font-mono);color:var(--green-bright);text-shadow:0 0 4px rgba(0,255,65,0.3);line-height:1.6">
+        ALT 15,420 ft<br>
+        IAS 412 kts<br>
+        M 0.92
+      </div>
+      <div style="position:absolute;top:12px;right:12px;font-size:10px;font-family:var(--font-mono);color:var(--green-bright);text-shadow:0 0 4px rgba(0,255,65,0.3);line-height:1.6;text-align:right">
+        HDG 274&deg;<br>
+        G 1.2<br>
+        AOA 4.8&deg;
+      </div>
+      <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--green-bright);letter-spacing:1px;text-shadow:0 0 4px rgba(0,255,65,0.3)">
+        T+00:03:42.180
+      </div>
+    </div>
+  </div>`;
+
+  // Playback controls
+  html += `<div style="margin:12px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">CONTROLS</div>
+    <table class="data-table">
+      <tr><th>KEY</th><th>ACTION</th><th>DESCRIPTION</th></tr>
+      <tr><td><code>Space</code></td><td>Play / Pause</td><td>Toggle video playback</td></tr>
+      <tr><td><code>,</code> / <code>.</code></td><td>Frame Step</td><td>Step back/forward 1 frame</td></tr>
+      <tr><td><code>&lt;</code> / <code>&gt;</code></td><td>Skip</td><td>Step back/forward 10 frames</td></tr>
+      <tr><td><code>H</code></td><td>HUD Overlay</td><td>Toggle telemetry overlay on video</td></tr>
+      <tr><td><code>M</code></td><td>Mark</td><td>Quick-annotate at current timestamp</td></tr>
+    </table>
+  </div>`;
+
+  // Data strip info
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">DATA STRIP — ZERO-ORDER HOLD</div>
+    <div style="background:var(--bg-surface);border:1px solid var(--border);padding:12px;font-size:11px;line-height:1.6">
+      The <span style="color:var(--cyan)">Data Strip</span> displays configurable telemetry parameters alongside the video.
+      Values are held from the most recent 1553 sample until the next update
+      (<span style="color:var(--cyan)">zero-order hold</span>), matching how the pilot sees data in the cockpit.
+      Default parameters: altitude, airspeed, heading, Mach, Nz, alpha.
+    </div>
+  </div>`;
+
+  // Video metadata
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">VIDEO CHANNEL METADATA</div>
+    <table class="data-table">
+      <tr><th>PROPERTY</th><th>VALUE</th></tr>
+      <tr><td>Source</td><td class="decoded">Ch.10 Type 0xF0 — Channel 1</td></tr>
+      <tr><td>Codec</td><td>H.264 (re-encoded from MPEG-2)</td></tr>
+      <tr><td>Resolution</td><td class="dim">640 x 480</td></tr>
+      <tr><td>Frame Rate</td><td class="dim">30 fps</td></tr>
+      <tr><td>Duration</td><td class="decoded">240.3s</td></tr>
+      <tr><td>Gaps Detected</td><td class="warn">3 (total 0.12s)</td></tr>
+      <tr><td>Size</td><td class="dim">48.2 MB</td></tr>
+    </table>
+  </div>`;
+
+  return html;
+}
+
+function renderVizTimeline() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">INTERACTIVE TIMELINE</div>
+      The Timeline page renders decoded 1553 parameters as synchronized time-series plots.
+      A collapsible <code>Parameter Sidebar</code> organizes available parameters by subsystem group
+      (RADAR, EW, NAV, SMS, FLCS) with sparkline previews showing the shape of each parameter's data
+      before selection.
+      <br><br>
+      <strong>Brush/zoom:</strong> Click-and-drag on any chart to zoom into a time region. All charts
+      and the video panel (if docked) stay synchronized. The <code>/</code> key focuses the search box
+      for quick parameter lookup. Up to 8 parameters can be displayed simultaneously with distinct
+      dash patterns for visual separation.
+      <br><br>
+      <strong>FTE presets:</strong> Flight Test Engineer-curated parameter groupings (e.g., "FLCS Surfaces",
+      "Air Data", "Radar Track") load recommended parameter sets with a single click.
+      Cross-page navigation from the Requirements or Anomalies pages jumps directly to the relevant
+      timestamp with context parameters pre-loaded.
+    </div>`;
+  }
+
+  // Simulated timeline layout
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">TIMELINE LAYOUT</div>
+    <div style="display:flex;gap:12px">
+      <div style="width:180px;background:var(--bg-surface);border:1px solid var(--border);padding:10px;flex-shrink:0">
+        <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;margin-bottom:8px">PARAMETERS</div>
+        ${['Pitch Cmd Ch-A','Roll Cmd Ch-A','Ground Speed','Baro Altitude','Target Range'].map((p, i) => `
+          <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:10px;border-bottom:1px solid var(--border)">
+            <div style="width:30px;height:10px;display:flex;align-items:end;gap:1px">
+              ${[3,5,4,6,5,4,3,4,5,6].map(h => `<div style="width:2px;height:${h}px;background:var(--green-dim)"></div>`).join('')}
+            </div>
+            <span style="color:${i < 2 ? 'var(--cyan)' : 'var(--text)'}">${p}</span>
+          </div>
+        `).join('')}
+        <div style="margin-top:8px;font-size:9px;color:var(--text-dim)">
+          <div style="letter-spacing:1px;margin-bottom:4px">PRESETS</div>
+          ${['FLCS Surfaces','Air Data','Radar Track'].map(p => `
+            <div style="padding:3px 6px;margin-bottom:2px;background:var(--bg-hover);border:1px solid var(--border);cursor:pointer;font-size:9px;color:var(--text-dim)">${p}</div>
+          `).join('')}
+        </div>
+      </div>
+      <div style="flex:1;background:var(--bg-surface);border:1px solid var(--border);padding:10px">
+        <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;margin-bottom:8px">CHART AREA</div>
+        ${[0,1,2].map(i => `
+          <div style="height:50px;border-bottom:1px solid var(--border);margin-bottom:4px;position:relative;overflow:hidden">
+            <div style="position:absolute;left:0;bottom:0;width:100%;height:100%;display:flex;align-items:end;gap:1px">
+              ${Array.from({length:60}, (_, j) => {
+                const h = 15 + Math.sin(j * 0.15 + i * 2) * 12 + Math.random() * 8;
+                return `<div style="width:2px;height:${h}px;background:var(--green-dim);opacity:0.7"></div>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('')}
+        <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text-dim)">
+          <span>0s</span><span>60s</span><span>120s</span><span>180s</span><span>240s</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Feature table
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">TIMELINE FEATURES</div>
+    <table class="data-table">
+      <tr><th>FEATURE</th><th>DESCRIPTION</th></tr>
+      <tr><td class="decoded">Parameter Sidebar</td><td>Collapsible panel with sparkline previews and subsystem grouping</td></tr>
+      <tr><td class="decoded">Brush/Zoom</td><td>Click-drag to zoom; all charts and video stay synchronized</td></tr>
+      <tr><td class="decoded">FTE Presets</td><td>One-click parameter groupings curated for common analysis tasks</td></tr>
+      <tr><td class="decoded">Annotation Mode</td><td>Toggle to place markers directly on the timeline</td></tr>
+      <tr><td class="decoded">Data Cursor</td><td>Hover readout showing exact values at any timestamp</td></tr>
+      <tr><td class="decoded">Cross-Page Nav</td><td>Jump from Requirements or Anomalies with timestamp + parameter context</td></tr>
+      <tr><td class="decoded">Video Panel</td><td>Floating video docked to timeline with bidirectional time sync</td></tr>
+    </table>
+  </div>`;
+
+  return html;
+}
+
+function renderVizAnnotations() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">ANNOTATION SYSTEM</div>
+      Annotations are timestamped markers placed during post-flight review. Each annotation has a
+      <code>label</code>, optional <code>notes</code>, a <code>category</code> (general, requirement,
+      anomaly, safety, discrepancy), and optional links to a <code>requirement_id</code> or
+      <code>video_channel_id</code>. Annotations are stored in the session database with full
+      audit trails (created_by, created_at, updated_at).
+      <br><br>
+      The <code>M</code> key quick-marks the current video timestamp with inline label editing.
+      Annotation markers appear on Timeline charts, the video scrub bar, and are cross-referenced
+      in the Requirements and Anomalies pages. Categories use color coding: blue (general),
+      purple (requirement), orange (anomaly), red (safety), yellow (discrepancy).
+    </div>`;
+  }
+
+  // Annotation categories
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">ANNOTATION CATEGORIES</div>
+    <div class="xchan-grid" style="grid-template-columns:repeat(5,1fr)">
+      ${[
+        { name: 'GENERAL', color: '#3b82f6', desc: 'General observations' },
+        { name: 'REQUIREMENT', color: '#a855f7', desc: 'Linked to AS3/B5 req' },
+        { name: 'ANOMALY', color: '#f97316', desc: 'Flagged anomaly event' },
+        { name: 'SAFETY', color: '#ef4444', desc: 'Safety-critical finding' },
+        { name: 'DISCREPANCY', color: '#eab308', desc: 'Data discrepancy' },
+      ].map(cat => `
+        <div class="chan-card" style="border-color:${cat.color}40">
+          <div style="font-size:10px;letter-spacing:1px;color:${cat.color};margin-bottom:4px">${cat.name}</div>
+          <div style="font-size:9px;color:var(--text-dim)">${cat.desc}</div>
+          <div style="width:8px;height:8px;border-radius:50%;background:${cat.color};margin-top:6px"></div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+
+  // Sample annotations
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">SAMPLE ANNOTATIONS</div>
+    <table class="data-table">
+      <tr><th>TIME</th><th>CATEGORY</th><th>LABEL</th><th>LINKED TO</th></tr>
+      <tr>
+        <td class="dim">00:01:22.400</td>
+        <td><span style="color:#a855f7;font-size:10px;font-weight:bold">REQUIREMENT</span></td>
+        <td>Bearing deviation peak</td>
+        <td style="color:var(--cyan)">AS3-RAD-0103</td>
+      </tr>
+      <tr>
+        <td class="dim">00:01:29.400</td>
+        <td><span style="color:#ef4444;font-size:10px;font-weight:bold">SAFETY</span></td>
+        <td>FDIR isolation delay</td>
+        <td style="color:var(--cyan)">B5-FCC-0055</td>
+      </tr>
+      <tr>
+        <td class="dim">00:02:15.800</td>
+        <td><span style="color:#f97316;font-size:10px;font-weight:bold">ANOMALY</span></td>
+        <td>Z-score cluster detected</td>
+        <td class="dim">-</td>
+      </tr>
+      <tr>
+        <td class="dim">00:03:01.200</td>
+        <td><span style="color:#3b82f6;font-size:10px;font-weight:bold">GENERAL</span></td>
+        <td>Mode change CRM to ACM</td>
+        <td class="dim">-</td>
+      </tr>
+      <tr>
+        <td class="dim">00:03:42.600</td>
+        <td><span style="color:#eab308;font-size:10px;font-weight:bold">DISCREPANCY</span></td>
+        <td>SMS station skew exceeds tolerance</td>
+        <td style="color:var(--cyan)">AS3-SMS-0056</td>
+      </tr>
+    </table>
+  </div>`;
+
+  // Annotation API
+  html += `<div style="margin:16px 0">
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">ANNOTATION API</div>
+    <table class="data-table">
+      <tr><th>ENDPOINT</th><th>METHOD</th><th>DESCRIPTION</th></tr>
+      <tr><td class="decoded">GET /api/annotations</td><td>GET</td><td>List all annotations for session</td></tr>
+      <tr><td class="decoded">POST /api/annotations</td><td>POST</td><td>Create annotation at timestamp</td></tr>
+      <tr><td class="decoded">PUT /api/annotations/{id}</td><td>PUT</td><td>Update annotation label/notes/category</td></tr>
+      <tr><td class="decoded">DELETE /api/annotations/{id}</td><td>DELETE</td><td>Remove annotation with audit log</td></tr>
+    </table>
+  </div>`;
+
+  return html;
 }
 
 // ─── DECODE HELPERS ───
@@ -1586,6 +2538,33 @@ function updatePrompt() {
       break;
     }
 
+    case 'b5': {
+      const b5sub = SUBSYSTEMS.flcs;
+      const bp = b5sub.requirements.filter(r => r.status === 'pass').length;
+      const bf = b5sub.requirements.filter(r => r.status === 'fail').length;
+      parts.push(`\nFocus on B5 sub-system requirement evaluation for the Flight Control Computer (FCC).`);
+      parts.push(`The FLCS uses quad-redundant channels (A, B, C, D) on a dedicated FLCS bus (bus_name='FLCS_BUS').`);
+      if (state.b5View === 'xchan') {
+        parts.push(`Current view: Cross-channel correlation. Agreement tolerance: ${state.xchanTolerance} deg.`);
+        parts.push(`The ChannelFrameBuffer time-aligns data from 4 channels within 2ms, then compares per-field values.`);
+        if (state.b5Channel) {
+          parts.push(`Focused on Channel ${state.b5Channel}.`);
+        }
+      } else if (state.b5View === 'fdir') {
+        const sc = b5sub.fdirScenario;
+        parts.push(`Current view: FDIR timeline for Ch-${sc.faultChannel} fault at t=${sc.triggerTime}s.`);
+        parts.push(`Phases: ${sc.phases.map(p => `${p.name} (${((p.end-p.start)*1000).toFixed(0)}ms, ${p.status})`).join(' → ')}.`);
+        parts.push(`The FDIRSequenceTracker state machine verifies detect/isolate/recover timing and phase invariants.`);
+      } else {
+        parts.push(`B5 requirement results: ${bp} PASS, ${bf} FAIL out of ${b5sub.requirements.length} total.`);
+        if (bf > 0) {
+          const fails = b5sub.requirements.filter(r => r.status === 'fail');
+          parts.push(`Failed: ${fails.map(r => `${r.id} (${r.text} — actual: ${r.actual})`).join('; ')}.`);
+        }
+      }
+      break;
+    }
+
     case 'aiml': {
       const threshold = 1.0 - state.anomalySensitivity;
       const classified = sub.anomalyData.map(d => ({ ...d, detected: d.value > threshold ? 'anomaly' : 'normal' }));
@@ -1593,8 +2572,28 @@ function updatePrompt() {
       parts.push(`\nFocus on AI/ML anomaly detection using Isolation Forest.`);
       parts.push(`Contamination parameter: ${(state.anomalySensitivity * 100).toFixed(0)}% (threshold: ${threshold.toFixed(2)}).`);
       parts.push(`Results: ${anomalyCount} anomalies detected out of ${classified.length} samples.`);
+      parts.push(`Anomalies are classified by severity (LOW, MEDIUM, HIGH, CRITICAL) with cluster detection grouping related events.`);
+      parts.push(`The AnomalyReport caps stored details at 10,000 while tracking the true total count.`);
       if (state.anomalySensitivity !== DEFAULTS.anomalySensitivity) {
         parts.push(`Sensitivity adjusted from default ${(DEFAULTS.anomalySensitivity*100)}% to ${(state.anomalySensitivity*100).toFixed(0)}%.`);
+      }
+      break;
+    }
+
+    case 'viz': {
+      parts.push(`\nFocus on the visualization and video playback layer.`);
+      if (state.vizView === 'video') {
+        parts.push(`Video pipeline: Chapter 10 Type 0xF0 packets are extracted per channel, re-encoded from MPEG-2 to H.264 for browser playback.`);
+        parts.push(`HUD overlay renders altitude, airspeed, heading, Mach, G-loading, and AOA using zero-order-hold from nearest 1553 sample.`);
+        parts.push(`Frame-step controls (comma/period keys), playback speed selection, and M-key quick-mark annotation.`);
+      } else if (state.vizView === 'timeline') {
+        parts.push(`Timeline page features: parameter sidebar with sparkline previews, synchronized brush/zoom across all charts and video.`);
+        parts.push(`FTE presets provide curated parameter groupings. Cross-page navigation jumps from Requirements/Anomalies with context.`);
+        parts.push(`Up to 8 parameters displayed with distinct dash patterns. Data cursor provides hover readout at any timestamp.`);
+      } else {
+        parts.push(`Annotation system: timestamped markers with categories (general, requirement, anomaly, safety, discrepancy).`);
+        parts.push(`CRUD API at /api/annotations with audit trails. M-key quick-mark with inline label editing.`);
+        parts.push(`Annotations appear on Timeline charts, video scrub bar, and cross-reference AS3/B5 requirements.`);
       }
       break;
     }
@@ -1612,6 +2611,10 @@ function setState(key, value) {
   }
   if (key === 'stage') {
     state.lsbOverride = null;
+    if (value === 'b5') {
+      state.subsystem = 'flcs';
+      state.messageIdx = 0;
+    }
   }
   updateAll();
 }
