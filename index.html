@@ -875,12 +875,14 @@
 // ═══════════════════════════════════════════════════════════
 
 const STAGES = [
-  { id: 'ingest',  label: '.C10 DATA',    num: '01' },
-  { id: 'icd',     label: 'ICD PARSE',    num: '02' },
-  { id: 'as3',     label: 'AS3 EVAL',     num: '03' },
-  { id: 'b5',      label: 'B5 EVAL',      num: '04' },
-  { id: 'aiml',    label: 'AI/ML',        num: '05' },
-  { id: 'viz',     label: 'VIDEO & VIZ',  num: '06' }
+  { id: 'ingest',  label: '.C10 + PCAP',   num: '01' },
+  { id: 'icd',     label: 'ICD PARSE',     num: '02' },
+  { id: 'derived', label: 'DERIVED FIELDS',num: '03' },
+  { id: 'as3',     label: 'AS3 EVAL',      num: '04' },
+  { id: 'b5',      label: 'B5 EVAL',       num: '05' },
+  { id: 'aiml',    label: 'AI/ML',         num: '06' },
+  { id: 'cv',      label: 'CV PIPELINE',   num: '07' },
+  { id: 'viz',     label: 'VIDEO & VIZ',   num: '08' }
 ];
 
 const SUBSYSTEMS = {
@@ -1085,6 +1087,172 @@ const SUBSYSTEMS = {
       ]
     },
     anomalyData: generateAnomalyData(120, 0.04, 29)
+  },
+  // ── TC Demo Subsystems (Sorties 7-12) ──────────────────────
+  tc01_aim9x: {
+    name: 'TC-01: AIM-9X Target Tracking',
+    short: 'TC-01',
+    rt: 14,
+    isTC: true,
+    sortie: 12,
+    initialState: 'Ground start → takeoff → AIM-9X engagement at T=180s. Seeker: STBY→SLEWING→SEARCHING→TRACKING.',
+    messages: [
+      {
+        sa: 1, dir: 'RT→BC', wc: 6, label: 'Seeker Status',
+        rawWords: ['0300','0600','0F3C','5000','8000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 12, name: 'Seeker Mode', type: 'Enum', enums: ['STBY','SLEWING','SEARCHING','TRACKING'], cls: 'field-a' },
+          { word: 0, bitsHi: 3, bitsLo: 0, name: 'Track Quality', type: 'Unsigned', lsb: 1, unit: '', cls: 'field-b' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'LOS Azimuth', type: 'Signed', lsb: 0.0055, unit: 'deg', cls: 'field-c' },
+          { word: 2, bitsHi: 7, bitsLo: 0, name: 'Coolant Remaining', type: 'Unsigned', lsb: 1, unit: '%', cls: 'field-d' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-AIM9-001', text: 'Seeker mode = TRACKING within 1500ms of self_track_cmd', status: 'pass', actual: '1200ms', threshold: '≤1500ms', evidence: 'Self-track cmd at T=250s, TRACKING at T=251.2s', ruleType: 'timing' },
+      { id: 'AS3-AIM9-002', text: 'Valid seeker mode state transitions only', status: 'pass', actual: 'All valid', threshold: 'No invalid transitions', evidence: 'STBY→SLEWING→SEARCHING→TRACKING sequence validated', ruleType: 'state_transition' },
+      { id: 'AS3-AIM9-004', text: 'Track quality ≥ 3 when TRACKING', status: 'fail', actual: 'quality=1', threshold: '≥3', evidence: 'Quality drop to 1 during T=310-320s (injected failure)', ruleType: 'conditional' },
+      { id: 'AS3-AIM9-009', text: 'TD box valid within 1000ms of TRACKING', status: 'pass', actual: '500ms', threshold: '≤1000ms', evidence: 'td_box_valid at T=251.7s, TRACKING at T=251.2s', ruleType: 'timing' },
+      { id: 'AS3-AIM9-011', text: 'TD source = AIM9X_SEEKER when TRACKING + TD valid', status: 'fail', actual: 'source=RADAR', threshold: 'AIM9X_SEEKER', evidence: 'TD source corrupted to RADAR during T=380-390s (injected failure)', ruleType: 'conditional' },
+      { id: 'AS3-AIM9-014', text: 'cage_uncage_cmd = UNCAGE when self_track_cmd = ENABLE', status: 'pass', actual: 'UNCAGE', threshold: 'UNCAGE', evidence: 'Correlation verified throughout engagement window', ruleType: 'conditional' },
+    ],
+    anomalyData: generateAnomalyData(60, 0.05, 1201)
+  },
+  tc02_dwat: {
+    name: 'TC-02: DWAT Warning',
+    short: 'TC-02',
+    rt: 11,
+    isTC: true,
+    sortie: 7,
+    initialState: 'Ground start at 1000 ft MSL. Takeoff at T=165s arms 180s DWAT window. Tests max-fires-once.',
+    messages: [
+      {
+        sa: 1, dir: 'BC→RT', wc: 4, label: 'Aural Warning Command',
+        rawWords: ['0100','0200','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 0, bitsLo: 0, name: 'DWAT Commanded', type: 'Discrete', enums: ['OFF','COMMANDED'], cls: 'field-a' },
+          { word: 0, bitsHi: 3, bitsLo: 1, name: 'Warning Priority', type: 'Enum', enums: ['NONE','CAUTION','WARNING','EMERGENCY'], cls: 'field-b' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-DWAT-001', text: 'DWAT fires within 180s window after WOW IN_AIR, max_fires=1', status: 'pass', actual: 'Fired once at T=165s', threshold: 'max_fires=1 in 180s', evidence: 'Event window state machine: IDLE→OPEN at WOW transition, RESOLVED after first fire', ruleType: 'event_window' },
+      { id: 'AS3-DWAT-002', text: 'Altitude AGL range 0-60000 ft when IN_AIR', status: 'pass', actual: '0-4000 ft', threshold: '0-60000 ft', evidence: 'All altitude values within bounds', ruleType: 'range_check' },
+      { id: 'AS3-DWAT-003', text: 'No warning priority > CAUTION while ON_GROUND', status: 'pass', actual: 'NONE', threshold: '≤CAUTION', evidence: 'Ground ops showed NONE priority only', ruleType: 'conditional' },
+      { id: 'AS3-DWAT-004', text: 'DWAT commanded when descent exceeds 30s-to-impact threshold', status: 'pass', actual: 'Commanded', threshold: 'COMMANDED when exceeded', evidence: 'At T=210s: AGL=600, threshold=20fps, descent=25fps', ruleType: 'conditional' },
+    ],
+    anomalyData: generateAnomalyData(60, 0.03, 707)
+  },
+  tc03_link16: {
+    name: 'TC-03: Link 16 Message Implementation',
+    short: 'TC-03',
+    rt: 25,
+    isTC: true,
+    sortie: 8,
+    initialState: 'Mid-flight at 20,000 ft. MIDS initializes at T=30s, PPLI + air tracks at 12 Hz. HSD at 40nm.',
+    messages: [
+      {
+        sa: 2, dir: 'RT→BC', wc: 8, label: 'J3.5 Air Track',
+        rawWords: ['4100','D300','61A8','0001','0412','00B4','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 0, name: 'Track Latitude', type: 'Signed', lsb: 0.00055, unit: 'deg', cls: 'field-a' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'Track Longitude', type: 'Signed', lsb: 0.00055, unit: 'deg', cls: 'field-b' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Track Altitude', type: 'Unsigned', lsb: 1, unit: 'ft', cls: 'field-c' },
+          { word: 3, bitsHi: 3, bitsLo: 0, name: 'Hostility', type: 'Enum', enums: ['UNKNOWN','FRIEND','HOSTILE','NEUTRAL'], cls: 'field-d' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-L16-001', text: 'PPLI message rate ≥ 12 Hz', status: 'pass', actual: '12.1 Hz', threshold: '≥12 Hz', evidence: 'Consistent 12 Hz PPLI exchange measured', ruleType: 'rate_check' },
+      { id: 'AS3-L16-003', text: 'MIDS lat matches display lat within 0.001°', status: 'fail', actual: 'delta=6.8°', threshold: '≤0.001°', evidence: 'Injected latitude corruption at T=150s: mids=40.0° vs display=33.2°', ruleType: 'field_comparison' },
+      { id: 'AS3-L16-005', text: 'MIDS altitude matches display altitude within 100 ft', status: 'pass', actual: '0 ft delta', threshold: '≤100 ft', evidence: 'Altitude values matched across all frames', ruleType: 'field_comparison' },
+      { id: 'AS3-L16-006', text: 'Valid hostility state transitions only', status: 'pass', actual: 'FRIEND→HOSTILE', threshold: 'Valid only', evidence: 'Single valid transition at T=200s', ruleType: 'state_transition' },
+      { id: 'AS3-L16-008', text: '≥1 friendly track symbol detected on MFD', status: 'pass', actual: '2 detected', threshold: '≥1', evidence: 'CV pipeline detected 2 friendly semicircle symbols', ruleType: 'video_symbol_detection' },
+      { id: 'AS3-L16-009', text: '≥80% track symbols within 30px of expected position', status: 'pass', actual: '87%', threshold: '≥80%', evidence: 'Position verification: 87% within tolerance across 40 frames', ruleType: 'video_position_check' },
+    ],
+    anomalyData: generateAnomalyData(60, 0.04, 808)
+  },
+  tc04_jassm: {
+    name: 'TC-04: JASSM Profile Selection',
+    short: 'TC-04',
+    rt: 22,
+    isTC: true,
+    sortie: 9,
+    initialState: 'Airborne, A-G mode, master arm ON. JASSM SMS page on left MFD. Profile browsing T=30-120s.',
+    messages: [
+      {
+        sa: 1, dir: 'BC→RT', wc: 4, label: 'JASSM Profile Data',
+        rawWords: ['0200','0003','0005','4A41'],
+        fields: [
+          { word: 0, bitsHi: 3, bitsLo: 0, name: 'Profile Index', type: 'Unsigned', lsb: 1, unit: '', cls: 'field-a' },
+          { word: 1, bitsHi: 3, bitsLo: 0, name: 'Weapon Type', type: 'Enum', enums: ['NONE','JASSM','JASSM-ER'], cls: 'field-b' },
+          { word: 2, bitsHi: 7, bitsLo: 0, name: 'Waypoint Count', type: 'Unsigned', lsb: 1, unit: '', cls: 'field-c' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-JASSM-001', text: 'Profile index matches selected profile when LOADED', status: 'fail', actual: 'index=1, selected=2', threshold: 'Match', evidence: 'Injected mismatch at T=250-260s', ruleType: 'field_comparison' },
+      { id: 'AS3-JASSM-002', text: 'Profile LOADED within 2.0s of OSB press', status: 'pass', actual: '1.5s', threshold: '≤2.0s', evidence: 'OSB press at T=120s, LOADED at T=121.5s', ruleType: 'timing' },
+      { id: 'AS3-JASSM-003', text: 'Waypoint count 1-255 when LOADED', status: 'pass', actual: '5', threshold: '1-255', evidence: 'Waypoint count=5 throughout loaded state', ruleType: 'range_check' },
+      { id: 'AS3-JASSM-005', text: '"JASSM" text detected via OCR on MFD', status: 'pass', actual: 'JASSM', threshold: 'Text match', evidence: 'Tesseract OCR detected "JASSM" in mode_label_tl ROI', ruleType: 'video_text_match' },
+    ],
+    anomalyData: generateAnomalyData(60, 0.04, 909)
+  },
+  tc05_tgp: {
+    name: 'TC-05: TGP Point Track Command',
+    short: 'TC-05',
+    rt: 13,
+    isTC: true,
+    sortie: 10,
+    initialState: 'Airborne, A-G mode. TGP warms up T=0-30s, A-G search T=30-120s. SOI switches to TGP at T=115s.',
+    messages: [
+      {
+        sa: 1, dir: 'RT→BC', wc: 8, label: 'TGP Status',
+        rawWords: ['0300','0500','0100','0F00','0096','E370','0000','0000'],
+        fields: [
+          { word: 0, bitsHi: 3, bitsLo: 0, name: 'Submode Status', type: 'Enum', enums: ['STBY','A-G','SNOWPLOW','POINT_TRACK','AREA_TRACK'], cls: 'field-a' },
+          { word: 0, bitsHi: 7, bitsLo: 4, name: 'Track Quality', type: 'Unsigned', lsb: 1, unit: '', cls: 'field-b' },
+          { word: 1, bitsHi: 0, bitsLo: 0, name: 'Track Valid', type: 'Discrete', enums: ['INVALID','VALID'], cls: 'field-c' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Track Error', type: 'Unsigned', lsb: 0.1, unit: 'mrad', cls: 'field-d' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-TGP-001', text: 'POINT_TRACK within 500ms of SOI=TGP + TMS=FWD', status: 'pass', actual: '350ms', threshold: '≤500ms', evidence: 'TMS FWD at T=120s, POINT_TRACK at T=120.35s', ruleType: 'timing' },
+      { id: 'AS3-TGP-002', text: 'Valid TGP submode state transitions only', status: 'pass', actual: 'All valid', threshold: 'No invalid transitions', evidence: 'STBY→A-G→POINT_TRACK sequence validated', ruleType: 'state_transition' },
+      { id: 'AS3-TGP-003', text: 'Track error 0-5.0 mrad when POINT_TRACK + track_valid', status: 'pass', actual: '1.5 mrad', threshold: '0-5.0 mrad', evidence: 'Stable at 1.5 mrad after settling', ruleType: 'range_check' },
+      { id: 'AS3-TGP-005', text: 'Track quality ≥ 3 when track_valid', status: 'fail', actual: 'quality=1', threshold: '≥3', evidence: 'Injected quality drop at T=200-210s', ruleType: 'conditional' },
+      { id: 'AS3-TGP-007', text: '≥1 target symbol detected on MFD', status: 'pass', actual: '1 detected', threshold: '≥1', evidence: 'CV pipeline detected unknown_track circle symbol', ruleType: 'video_symbol_detection' },
+    ],
+    anomalyData: generateAnomalyData(60, 0.05, 1010)
+  },
+  tc06_radar_display: {
+    name: 'TC-06: Radar Track Display Validation',
+    short: 'TC-06',
+    rt: 21,
+    isTC: true,
+    sortie: 11,
+    initialState: 'Radar OFF→STBY→SRCH→TWS at T=90s. Target at 25nm/15°. Range scale cycles 40→20→80nm.',
+    messages: [
+      {
+        sa: 4, dir: 'BC→RT', wc: 6, label: 'FCC Target Data Block',
+        rawWords: ['00C8','003C','0412','8000','0028','0000'],
+        fields: [
+          { word: 0, bitsHi: 15, bitsLo: 0, name: 'FCC Target Range', type: 'Unsigned', lsb: 0.125, unit: 'nm', cls: 'field-a' },
+          { word: 1, bitsHi: 15, bitsLo: 0, name: 'FCC Target Azimuth', type: 'Signed', lsb: 0.01, unit: 'deg', cls: 'field-b' },
+          { word: 2, bitsHi: 15, bitsLo: 0, name: 'Track ID', type: 'Unsigned', lsb: 1, unit: '', cls: 'field-c' },
+          { word: 3, bitsHi: 0, bitsLo: 0, name: 'Track Valid', type: 'Discrete', enums: ['INVALID','VALID'], cls: 'field-d' },
+        ]
+      }
+    ],
+    requirements: [
+      { id: 'AS3-DIS-020', text: 'Radar range matches FCC range within 0.125 nm', status: 'fail', actual: '5.0 nm delta', threshold: '≤0.125 nm', evidence: 'Injected FCC range corruption at T=180-182s: radar=25nm, FCC=30nm', ruleType: 'field_comparison' },
+      { id: 'AS3-DIS-021', text: 'Radar bearing matches FCC azimuth within 0.1°', status: 'pass', actual: '0.0° delta', threshold: '≤0.1°', evidence: 'Azimuth values matched across all frames', ruleType: 'field_comparison' },
+      { id: 'AS3-DIS-022', text: 'FCC track_valid = VALID when radar TWS/RWS + quality ≥ 3', status: 'pass', actual: 'VALID', threshold: 'VALID', evidence: 'Track validity correlated with radar mode throughout', ruleType: 'conditional' },
+      { id: 'AS3-DIS-023', text: '≥1 hostile track symbol detected on MFD', status: 'pass', actual: '2 detected', threshold: '≥1', evidence: 'CV pipeline detected 2 hostile diamond symbols', ruleType: 'video_symbol_detection' },
+      { id: 'AS3-DIS-024', text: '≥80% symbols within 30px of expected position', status: 'pass', actual: '85%', threshold: '≥80%', evidence: 'Position verification across 3 range scale changes', ruleType: 'video_position_check' },
+    ],
+    anomalyData: generateAnomalyData(60, 0.04, 1111)
   }
 };
 
@@ -1139,6 +1307,9 @@ const state = {
   b5Channel: null,       // null = all channels, or 'A','B','C','D'
   b5View: 'xchan',       // 'xchan' | 'fdir' | 'reqs'
   xchanTolerance: 0.05,  // cross-channel agreement threshold (deg)
+  cvView: 'overview',    // 'overview' | 'detections' | 'trackbridge'
+  cvBackend: 'template', // 'template' | 'yolo'
+  cvConfidence: 0.50,    // detection confidence threshold
   vizView: 'video',      // 'video' | 'timeline' | 'annotations'
 };
 
@@ -1168,13 +1339,22 @@ function renderSidebar() {
   const sub = SUBSYSTEMS[state.subsystem];
   let html = '';
 
-  // Subsystem selector
+  // Subsystem selector — original avionics buses
+  const origSubs = Object.entries(SUBSYSTEMS).filter(([k,v]) => !v.isTC);
+  const tcSubs = Object.entries(SUBSYSTEMS).filter(([k,v]) => v.isTC);
   html += `<div class="ctrl-section">
     <div class="ctrl-label">SUBSYSTEM</div>
-    ${Object.entries(SUBSYSTEMS).map(([key, val]) => `
+    ${origSubs.map(([key, val]) => `
       <button class="ctrl-btn ${state.subsystem === key ? 'active' : ''}" onclick="setState('subsystem','${key}')">
         ${val.short}
         <span class="btn-sub">RT ${val.rt} — ${val.name}</span>
+      </button>
+    `).join('')}
+    <div class="ctrl-label" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">TEST CASES</div>
+    ${tcSubs.map(([key, val]) => `
+      <button class="ctrl-btn ${state.subsystem === key ? 'active' : ''}" onclick="setState('subsystem','${key}')">
+        ${val.short}
+        <span class="btn-sub">RT ${val.rt} — Sortie ${val.sortie}</span>
       </button>
     `).join('')}
   </div>`;
@@ -1223,6 +1403,46 @@ function renderSidebar() {
         </div>
       </div>`;
     }
+  }
+
+  if (state.stage === 'cv') {
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">CV VIEW</div>
+      <button class="ctrl-btn ${state.cvView === 'overview' ? 'active' : ''}" onclick="setState('cvView','overview')">
+        OVERVIEW
+        <span class="btn-sub">Pipeline stages + config</span>
+      </button>
+      <button class="ctrl-btn ${state.cvView === 'detections' ? 'active' : ''}" onclick="setState('cvView','detections')">
+        DETECTIONS
+        <span class="btn-sub">Symbol detection results</span>
+      </button>
+      <button class="ctrl-btn ${state.cvView === 'trackbridge' ? 'active' : ''}" onclick="setState('cvView','trackbridge')">
+        TRACK BRIDGE
+        <span class="btn-sub">1553 → CV correlation</span>
+      </button>
+    </div>`;
+
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">DETECTION BACKEND</div>
+      <button class="ctrl-btn ${state.cvBackend === 'template' ? 'active' : ''}" onclick="setState('cvBackend','template')">
+        TEMPLATE MATCH
+        <span class="btn-sub">Lightweight, no model needed</span>
+      </button>
+      <button class="ctrl-btn ${state.cvBackend === 'yolo' ? 'active' : ''}" onclick="setState('cvBackend','yolo')">
+        YOLOv8 (ONNX)
+        <span class="btn-sub">Neural network, higher accuracy</span>
+      </button>
+    </div>`;
+
+    html += `<div class="ctrl-section">
+      <div class="ctrl-label">CONFIDENCE THRESHOLD</div>
+      <div class="slider-row">
+        <input type="range" min="0.10" max="0.95" step="0.05"
+          value="${state.cvConfidence}"
+          oninput="setState('cvConfidence', parseFloat(this.value))">
+        <span class="slider-val">${(state.cvConfidence * 100).toFixed(0)}%</span>
+      </div>
+    </div>`;
   }
 
   if (state.stage === 'b5') {
@@ -1331,9 +1551,11 @@ function renderSidebar() {
     <div class="preset-grid">
       <button class="preset-btn" onclick="applyPreset('overview')">OVERVIEW</button>
       <button class="preset-btn" onclick="applyPreset('decode')">DECODE</button>
+      <button class="preset-btn" onclick="applyPreset('derived')">DERIVED</button>
       <button class="preset-btn" onclick="applyPreset('reqcheck')">REQ CHECK</button>
       <button class="preset-btn" onclick="applyPreset('b5fcc')">B5 / FCC</button>
       <button class="preset-btn" onclick="applyPreset('anomaly')">ANOMALY</button>
+      <button class="preset-btn" onclick="applyPreset('cvpipeline')">CV / MFD</button>
       <button class="preset-btn" onclick="applyPreset('viz')">VIDEO/VIZ</button>
     </div>
   </div>`;
@@ -1360,9 +1582,16 @@ function applyPreset(name) {
       state.b5Channel = null; state.xchanTolerance = 0.05;
       state.showExplanations = true;
       break;
+    case 'derived':
+      state.stage = 'derived'; state.showExplanations = true;
+      break;
     case 'anomaly':
       state.stage = 'aiml'; state.subsystem = 'radar'; state.anomalySensitivity = 0.10;
       state.showExplanations = true;
+      break;
+    case 'cvpipeline':
+      state.stage = 'cv'; state.cvView = 'overview'; state.cvBackend = 'template';
+      state.cvConfidence = 0.50; state.showExplanations = true;
       break;
     case 'viz':
       state.stage = 'viz'; state.vizView = 'video'; state.showExplanations = true;
@@ -1373,14 +1602,18 @@ function applyPreset(name) {
 
 // ─── RENDER CONTENT ───
 function renderContent() {
+  // NOTE: All content is static/notional educational data rendered by the app
+  // itself — no external or user-supplied input is injected into the HTML.
   const el = document.getElementById('content');
   switch (state.stage) {
-    case 'ingest': el.innerHTML = renderIngest(); break;
-    case 'icd':    el.innerHTML = renderICD(); break;
-    case 'as3':    el.innerHTML = renderAS3(); break;
-    case 'b5':     el.innerHTML = renderB5(); break;
-    case 'aiml':   el.innerHTML = renderAIML(); break;
-    case 'viz':    el.innerHTML = renderViz(); break;
+    case 'ingest':  el.innerHTML = renderIngest(); break;
+    case 'icd':     el.innerHTML = renderICD(); break;
+    case 'derived': el.innerHTML = renderDerived(); break;
+    case 'as3':     el.innerHTML = renderAS3(); break;
+    case 'b5':      el.innerHTML = renderB5(); break;
+    case 'aiml':    el.innerHTML = renderAIML(); break;
+    case 'cv':      el.innerHTML = renderCV(); break;
+    case 'viz':     el.innerHTML = renderViz(); break;
   }
 }
 
@@ -1390,12 +1623,14 @@ function renderIngest() {
   const msg = sub.messages[state.messageIdx];
   let html = '';
 
-  html += `<div class="content-title">STAGE 01: .C10 FLIGHT DATA INGESTION</div>`;
+  html += `<div class="content-title">STAGE 01: .C10 + PCAP FLIGHT DATA INGESTION</div>`;
   html += `<div class="content-desc">
     Chapter 10 (IRIG 106) files contain time-stamped recordings of all MIL-STD-1553B bus traffic
     and video channels captured during flight test. Each 1553 message is identified by its Remote Terminal (RT) address,
     Subaddress (SA), and transfer direction. Video packets (Type 0xF0) are extracted in parallel for
-    synchronized playback.
+    synchronized playback. Companion <strong>PCAP files</strong> provide Ethernet traffic (e.g., Link 16 MIDS,
+    weapon datalinks) that is mapped to virtual RT/SA addresses via ICD-defined <code>virtual_rt_mapping</code>
+    entries and time-aligned with 1553 bus data.
   </div>`;
 
   if (state.showExplanations) {
@@ -1405,6 +1640,13 @@ function renderIngest() {
       Each message has a <code>timestamp</code>, <code>bus (A/B)</code>, <code>RT address</code> (0-30),
       <code>subaddress</code> (1-30), <code>T/R bit</code> (transmit/receive), and up to 32 <code>data words</code> (16 bits each).
       The tool normalizes these into an internal time-indexed representation for downstream analysis.
+      <br><br>
+      <strong>PCAP / Ethernet ingestion:</strong> Companion .pcap files are read by the <code>PcapReader</code>
+      and decoded via <code>EthernetDecoder</code>. The ICD's <code>virtual_rt_mapping</code> maps
+      (dst_ip, dst_port) tuples to virtual RT/SA addresses so Ethernet messages (e.g., Link 16 MIDS tracks,
+      JASSM weapon datalinks, TGP streaming telemetry) enter the same <code>MessageStore</code> as 1553 data.
+      The <code>pcap_time_aligned</code> flag controls whether PCAP timestamps are treated as concurrent
+      (same time base as C10) or appended sequentially.
       <br><br>
       <strong>Video extraction:</strong> Chapter 10 video packets (Type 0xF0) are demuxed by channel ID,
       re-encoded to H.264 for browser playback, and time-aligned with 1553 bus data. Gap detection identifies
@@ -1416,11 +1658,12 @@ function renderIngest() {
   // Flow diagram
   html += `<div class="flow-explanation">
     <div class="flow-box active">
-      <div class="flow-title">.C10 FILE</div>
+      <div class="flow-title">.C10 + .PCAP FILES</div>
       <div class="flow-detail">
         IRIG 106 Ch.10<br>
         1553 bus capture<br>
         Video packets (F0)<br>
+        PCAP Ethernet traffic<br>
         Time-stamped
       </div>
     </div>
@@ -1430,6 +1673,7 @@ function renderIngest() {
       <div class="flow-detail">
         1553: RT/SA split<br>
         Video: channel split<br>
+        PCAP: virtual RT/SA map<br>
         Validate checksums<br>
         Gap detection
       </div>
@@ -1438,7 +1682,7 @@ function renderIngest() {
     <div class="flow-box">
       <div class="flow-title">NORMALIZE</div>
       <div class="flow-detail">
-        Time-align msgs<br>
+        Time-align 1553 + PCAP<br>
         Index by RT/SA<br>
         Video → H.264 MP4<br>
         HUD metadata sync
@@ -1448,7 +1692,7 @@ function renderIngest() {
     <div class="flow-box">
       <div class="flow-title">OUTPUT</div>
       <div class="flow-detail">
-        Time-series store<br>
+        Unified MessageStore<br>
         Video files + timeline<br>
         Annotation anchors<br>
         Ready for analysis
@@ -1636,21 +1880,44 @@ function renderAS3() {
   const sub = SUBSYSTEMS[state.subsystem];
   let html = '';
 
-  html += `<div class="content-title">STAGE 03: AS3 REQUIREMENT EVALUATION</div>`;
+  html += `<div class="content-title">STAGE 04: AS3 REQUIREMENT EVALUATION</div>`;
   html += `<div class="content-desc">
     AS3 system-level requirements define what each subsystem must do. The analysis engine
-    evaluates decoded flight data against each requirement, producing pass/fail determinations with evidence.
+    evaluates decoded flight data — including <strong>derived fields</strong> computed in Stage 03 —
+    against each requirement, producing pass/fail determinations with evidence.
+    The evaluator supports <strong>10 rule types</strong> across 1553 bus analysis and CV video verification.
   </div>`;
 
   if (state.showExplanations) {
     html += `<div class="info-box">
       <div class="info-title">HOW AS3 EVALUATION WORKS</div>
       Each AS3 requirement becomes a testable assertion. The engine scans the decoded time-series data
-      for the relevant parameters and evaluates conditions like:
-      <code>update_rate ≥ threshold</code>, <code>|actual - expected| ≤ tolerance</code>,
-      or <code>transition_time ≤ max_time</code>.
+      for the relevant parameters and evaluates conditions. <strong>10 rule types</strong> are supported:
+      <br><br>
+      <strong>Bus data rules:</strong>
+      <code>timing</code> (response latency),
+      <code>state_transition</code> (valid FSM sequences),
+      <code>range_check</code> (value bounds),
+      <code>conditional</code> (if-then field checks),
+      <code>rate_check</code> (message frequency),
+      <code>field_comparison</code> (cross-bus value matching with tolerance),
+      <code>event_window</code> (state machine: arm event → time window → max fires).
+      <br><br>
+      <strong>CV video rules:</strong>
+      <code>video_symbol_detection</code> (symbol presence on MFD),
+      <code>video_position_check</code> (symbol position vs ICD data),
+      <code>video_text_match</code> (OCR text verification on MFD).
+      <br><br>
       Results include the actual measured value, the pass/fail threshold, and supporting evidence
       with timestamps for traceability.
+    </div>`;
+  }
+
+  // TC initial state banner
+  if (sub.isTC && sub.initialState) {
+    html += `<div class="info-box" style="border-left-color:var(--cyan)">
+      <div class="info-title">INITIAL AIRCRAFT STATE — SORTIE ${sub.sortie}</div>
+      ${sub.initialState}
     </div>`;
   }
 
@@ -1680,14 +1947,16 @@ function renderAS3() {
   </div>`;
 
   // Requirements table
+  const hasRuleTypes = sub.requirements.some(r => r.ruleType);
   html += `<table class="data-table"><tr>
-    <th>STATUS</th><th>REQ ID</th><th>REQUIREMENT</th><th>ACTUAL</th><th>THRESHOLD</th>
+    <th>STATUS</th><th>REQ ID</th>${hasRuleTypes ? '<th>RULE TYPE</th>' : ''}<th>REQUIREMENT</th><th>ACTUAL</th><th>THRESHOLD</th>
   </tr>`;
 
   sub.requirements.forEach(r => {
     html += `<tr>
       <td><span class="req-status ${r.status}">${r.status.toUpperCase()}</span></td>
       <td style="color:var(--cyan);white-space:nowrap">${r.id}</td>
+      ${hasRuleTypes ? `<td><span style="font-size:9px;color:var(--cyan)">${(r.ruleType || '').replace(/_/g, ' ')}</span></td>` : ''}
       <td>${r.text}</td>
       <td class="${r.status === 'pass' ? 'pass' : r.status === 'fail' ? 'fail' : 'warn'}">${r.actual}</td>
       <td class="dim">${r.threshold}</td>
@@ -1714,7 +1983,7 @@ function renderB5() {
   const sub = SUBSYSTEMS.flcs;
   let html = '';
 
-  html += `<div class="content-title">STAGE 04: B5 SUB-SYSTEM REQUIREMENT EVALUATION</div>`;
+  html += `<div class="content-title">STAGE 05: B5 SUB-SYSTEM REQUIREMENT EVALUATION</div>`;
   html += `<div class="content-desc">
     B5 requirements govern the Flight Control Computer (FCC) at sub-system level, covering quad-redundant
     channel correlation, voter logic, gain schedules, authority limits, and FDIR (Failure Detection,
@@ -1741,6 +2010,11 @@ function renderB5() {
       and a <code>ChannelStateTracker</code> maintains temporal state for state machine validation.
       Derivative monitoring uses a <code>DerivativeComputer</code> for rate-of-change checks, and
       a <code>TransientAnalyzer</code> detects step responses and settling times.
+      <br><br>
+      <strong>Sliding window stats:</strong> A <code>SlidingWindowStats</code> engine computes rolling
+      mean/std/trend for spread metrics across three window categories: short (2s) for rate feedback,
+      medium (10s) for surface commands, and long (30s) for air data. A <code>B5SpreadAnomalyDetector</code>
+      applies Isolation Forest to the spread feature vectors to detect subtle cross-channel divergence.
       <br><br>
       Key difference from AS3: B5 requirements use <code>bus_name</code> to distinguish FLCS bus traffic from the
       avionics mux bus, and the ICD lookup is bus-qualified: <code>(bus_name, rt, sa, direction)</code>.
@@ -2021,7 +2295,7 @@ function renderAIML() {
   const sensitivity = state.anomalySensitivity;
   let html = '';
 
-  html += `<div class="content-title">STAGE 05: AI/ML ANOMALY DETECTION</div>`;
+  html += `<div class="content-title">STAGE 06: AI/ML ANOMALY DETECTION</div>`;
   html += `<div class="content-desc">
     Beyond rule-based AS3 checks, the AI/ML engine uses Isolation Forest to detect
     subtle anomalies in parameter behavior that may indicate unreported issues.
@@ -2190,11 +2464,445 @@ function getFeatureImportance(subsystem) {
   return features[subsystem] || features.radar;
 }
 
-// ─── STAGE 6: VIDEO & VISUALIZATION ───
+// ─── STAGE 3: DERIVED FIELDS ───
+function renderDerived() {
+  let html = '';
+
+  html += `<div class="content-title">STAGE 03: DERIVED FIELD COMPUTATION</div>`;
+  html += `<div class="content-desc">
+    The Derived Fields engine creates virtual parameters by combining decoded ICD fields
+    before AS3 evaluation. This enables requirements that reference computed values
+    (e.g., slant range from lat/lon/alt, closure rate from velocity components) without
+    modifying the ICD or duplicating logic in requirements.
+  </div>`;
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">HOW DERIVED FIELDS WORK</div>
+      Derived fields are defined in <code>data/derived_fields/demo_derived.json</code> and loaded by the
+      <code>DerivedFieldEngine</code>. Each definition specifies:
+      <br><br>
+      &bull; <code>field_name</code> &mdash; the virtual parameter name injected into the field dict<br>
+      &bull; <code>inputs</code> &mdash; source field names from ICD decode<br>
+      &bull; <code>op</code> &mdash; a safe operator (add, subtract, multiply, divide, abs, sqrt, min, max, sin, cos, atan2)<br>
+      &bull; <code>guard</code> &mdash; optional condition that must be true for the field to be computed
+      <br><br>
+      <strong>Security:</strong> The engine uses a safe operator dispatch table &mdash; no dynamic code
+      generation or string-to-code conversion. Infix expressions are parsed into AST nodes
+      using a precedence-climbing parser.
+      <br><br>
+      <strong>Mission config:</strong> The mission_config file (<code>data/mission_config/demo_mission.json</code>)
+      provides sortie-specific constants (e.g., range scale, altitude reference, weapon type) that are injected
+      as initial constants into the evaluator, enabling parameterized requirements.
+    </div>`;
+  }
+
+  // Flow diagram
+  html += `<div class="flow-explanation">
+    <div class="flow-box active">
+      <div class="flow-title">ICD DECODED</div>
+      <div class="flow-detail">
+        Raw to eng. units<br>
+        Per-field time series<br>
+        MessageStore indexed
+      </div>
+    </div>
+    <div class="flow-connector">\u25B6</div>
+    <div class="flow-box active">
+      <div class="flow-title">DERIVED ENGINE</div>
+      <div class="flow-detail">
+        Load definitions JSON<br>
+        Safe operator dispatch<br>
+        Guard conditions<br>
+        Infix expression parser
+      </div>
+    </div>
+    <div class="flow-connector">\u25B6</div>
+    <div class="flow-box active">
+      <div class="flow-title">MISSION CONFIG</div>
+      <div class="flow-detail">
+        Sortie constants<br>
+        Range scale, alt ref<br>
+        Weapon type params<br>
+        Evaluator initial state
+      </div>
+    </div>
+    <div class="flow-connector">\u25B6</div>
+    <div class="flow-box">
+      <div class="flow-title">OUTPUT</div>
+      <div class="flow-detail">
+        Virtual fields injected<br>
+        Available for AS3<br>
+        No ICD modification<br>
+        Audit-logged
+      </div>
+    </div>
+  </div>`;
+
+  // Example derived fields
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">EXAMPLE DERIVED FIELD DEFINITIONS (NOTIONAL)</div>`;
+  html += `<table class="data-table"><tr>
+    <th>FIELD NAME</th><th>EXPRESSION</th><th>INPUTS</th><th>OPERATOR</th><th>UNITS</th>
+  </tr>
+    <tr>
+      <td class="decoded">slant_range_nm</td>
+      <td class="dim">sqrt(ground_range^2 + alt_diff^2)</td>
+      <td>ground_range_nm, alt_diff_nm</td>
+      <td style="color:var(--cyan)">sqrt</td>
+      <td>nm</td>
+    </tr>
+    <tr>
+      <td class="decoded">closure_rate_kts</td>
+      <td class="dim">own_gs - tgt_gs * cos(aspect)</td>
+      <td>own_ground_speed_kts, tgt_ground_speed_kts, aspect_angle_rad</td>
+      <td style="color:var(--cyan)">subtract + multiply</td>
+      <td>kts</td>
+    </tr>
+    <tr>
+      <td class="decoded">time_to_impact_sec</td>
+      <td class="dim">slant_range / closure_rate</td>
+      <td>slant_range_nm, closure_rate_kts</td>
+      <td style="color:var(--cyan)">divide</td>
+      <td>sec</td>
+    </tr>
+    <tr>
+      <td class="decoded">track_correlation_score</td>
+      <td class="dim">abs(mids_lat - display_lat) + abs(mids_lon - display_lon)</td>
+      <td>mids_track_lat_deg, display_track_lat_deg, ...</td>
+      <td style="color:var(--cyan)">abs + add</td>
+      <td>deg</td>
+    </tr>
+  </table>`;
+
+  // Safe operators table
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">SAFE OPERATOR DISPATCH TABLE</div>`;
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">';
+  ['add','subtract','multiply','divide','abs','sqrt','min','max','sin','cos','atan2'].forEach(op => {
+    html += '<div style="background:var(--bg-surface);border:1px solid var(--border);padding:4px 10px;font-size:10px">'
+      + '<span style="color:var(--cyan)">' + op + '</span></div>';
+  });
+  html += '</div>';
+
+  // Mission config example
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">MISSION CONFIG CONSTANTS (NOTIONAL)</div>`;
+  html += `<table class="data-table"><tr>
+    <th>CONSTANT</th><th>VALUE</th><th>PURPOSE</th>
+  </tr>
+    <tr><td class="decoded">range_scale_nm</td><td>40.0</td><td>MFD range scale for track display</td></tr>
+    <tr><td class="decoded">altitude_reference_ft</td><td>0.0</td><td>MSL baseline for alt computations</td></tr>
+    <tr><td class="decoded">weapon_type</td><td>"AIM-9X"</td><td>Active weapon for TC-01 requirements</td></tr>
+    <tr><td class="decoded">jassm_profile_count</td><td>4</td><td>Number of JASSM profiles for TC-04</td></tr>
+  </table>`;
+
+  return html;
+}
+
+// ─── STAGE 7: CV PIPELINE ───
+function renderCV() {
+  let html = '';
+
+  html += `<div class="content-title">STAGE 07: COMPUTER VISION PIPELINE</div>`;
+  html += `<div class="content-desc">
+    The CV pipeline analyzes extracted MFD (Multi-Function Display) video frames to verify
+    that symbology matches ICD-decoded bus data. It detects track symbols, reads OCR text,
+    verifies positions against expected locations from 1553 data, and classifies colors
+    for hostility/IFF validation.
+  </div>`;
+
+  if (state.cvView === 'overview') {
+    html += renderCVOverview();
+  } else if (state.cvView === 'detections') {
+    html += renderCVDetections();
+  } else {
+    html += renderCVTrackBridge();
+  }
+
+  return html;
+}
+
+function renderCVOverview() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">CV PIPELINE ARCHITECTURE</div>
+      The CV pipeline (<code>src/cv/pipeline.py</code>) orchestrates six analysis stages on extracted
+      MFD video frames. It runs after main pipeline processing and produces an independent
+      <code>EvaluationReport</code> stored as <code>cv_eval_report</code> in <code>PipelineResult</code>.
+      <br><br>
+      <strong>Detection backends:</strong> Two symbol detection backends are available:
+      <br>
+      &bull; <code>SymbolDetector</code> (template matching) &mdash; lightweight, no model files needed, uses
+          multi-scale NCC template correlation with configurable threshold and NMS<br>
+      &bull; <code>YOLODetector</code> (YOLOv8-nano ONNX) &mdash; neural network inference via onnxruntime
+          (~50MB), higher accuracy for complex scenes. CPU-only, air-gapped safe. Optional SHA-256
+          model hash verification for integrity.
+      <br><br>
+      <strong>Air-gapped design:</strong> No network calls at runtime. ORT_DISABLE_TELEMETRY=1
+      for STIG compliance. The YOLO model is trained offline using <code>tools/train_yolo_detector.py</code>
+      with synthetic training data from <code>tools/generate_yolo_training_data.py</code>.
+    </div>`;
+  }
+
+  // CV Pipeline stages flow
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">CV PIPELINE STAGES</div>`;
+
+  const cvStages = [
+    { name: 'FRAME EXTRACT', detail: 'VideoExtractor output<br>Per-channel frames<br>Timestamp mapping', mod: 'frame_extractor.py' },
+    { name: 'PREPROCESS', detail: 'ROI masking<br>Contrast enhance<br>Noise reduction', mod: 'mfd_preprocessor.py' },
+    { name: 'DETECT', detail: state.cvBackend === 'yolo' ? 'YOLOv8-nano ONNX<br>CPU inference<br>4 symbol classes' : 'Template NCC<br>Multi-scale<br>NMS filtering', mod: state.cvBackend === 'yolo' ? 'yolo_detector.py' : 'symbol_detector.py' },
+    { name: 'OCR', detail: 'MFD text regions<br>Altitude, range, mode<br>Confidence scoring', mod: 'ocr_engine.py' },
+    { name: 'VERIFY POS', detail: 'Expected vs detected<br>Tolerance matching<br>Per-frame scoring', mod: 'position_verifier.py' },
+    { name: 'CLASSIFY', detail: 'Color extraction<br>Hostility mapping<br>IFF validation', mod: 'color_classifier.py' },
+  ];
+
+  html += '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0">';
+  cvStages.forEach((s, i) => {
+    const borderCol = i === 2 ? 'var(--cyan)' : 'var(--border)';
+    const textCol = i === 2 ? 'var(--cyan)' : 'var(--green-bright)';
+    html += '<div style="background:var(--bg-surface);border:1px solid ' + borderCol + ';padding:10px;text-align:center">'
+      + '<div style="font-size:10px;letter-spacing:1px;color:' + textCol + ';margin-bottom:6px">' + s.name + '</div>'
+      + '<div style="font-size:9px;color:var(--text-dim);line-height:1.5">' + s.detail + '</div>'
+      + '<div style="font-size:8px;color:var(--text-dim);margin-top:6px;border-top:1px solid var(--border);padding-top:4px">'
+      + '<code>' + s.mod + '</code></div></div>';
+  });
+  html += '</div>';
+
+  // Configuration table
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">CV PIPELINE CONFIGURATION</div>`;
+  html += `<table class="data-table"><tr>
+    <th>PARAMETER</th><th>VALUE</th><th>DESCRIPTION</th>
+  </tr>
+    <tr><td class="decoded">detection_backend</td><td style="color:var(--cyan)">${state.cvBackend}</td><td>${state.cvBackend === 'yolo' ? 'YOLOv8-nano ONNX model inference' : 'Template-based NCC matching'}</td></tr>
+    <tr><td class="decoded">detection_threshold</td><td>${state.cvConfidence.toFixed(2)}</td><td>Minimum confidence for detections</td></tr>
+    <tr><td class="decoded">nms_iou_threshold</td><td>0.30</td><td>Non-maximum suppression IoU overlap</td></tr>
+    <tr><td class="decoded">ocr_min_confidence</td><td>0.40</td><td>Minimum OCR text confidence</td></tr>
+    <tr><td class="decoded">position_tolerance_px</td><td>30.0</td><td>Expected vs detected position tolerance</td></tr>
+    <tr><td class="decoded">sample_interval</td><td>1</td><td>Process every Nth frame (1 = all)</td></tr>
+  </table>`;
+
+  // Symbol classes
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">SYMBOL CLASSES (NOTIONAL)</div>`;
+  const symbolClasses = [
+    { name: 'HOSTILE', color: '#ff4444', shape: '\u25C7', desc: 'Enemy / threat track' },
+    { name: 'FRIENDLY', color: '#00cc66', shape: '\u25CB', desc: 'Friendly / allied track' },
+    { name: 'UNKNOWN', color: '#ffcc00', shape: '\u25A1', desc: 'Unidentified contact' },
+    { name: 'NEUTRAL', color: '#00ccff', shape: '\u25AC', desc: 'Neutral / non-combatant' },
+  ];
+  html += '<div class="xchan-grid">';
+  symbolClasses.forEach(s => {
+    html += '<div class="chan-card" style="border-color:' + s.color + '40;text-align:center">'
+      + '<div style="font-size:18px;color:' + s.color + ';margin-bottom:4px">' + s.shape + '</div>'
+      + '<div style="font-size:10px;letter-spacing:1px;color:' + s.color + '">' + s.name + '</div>'
+      + '<div style="font-size:9px;color:var(--text-dim);margin-top:4px">' + s.desc + '</div></div>';
+  });
+  html += '</div>';
+
+  return html;
+}
+
+function renderCVDetections() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">DETECTION OUTPUT FORMAT</div>
+      Each <code>CVFrameResult</code> contains: <code>frame_number</code>, <code>elapsed_sec</code>,
+      a list of <code>SymbolDetection</code> (bounding box, class, confidence, centroid),
+      <code>ocr_texts</code> (per-ROI text readings), and an optional <code>PositionVerificationResult</code>
+      linking detected symbols to expected track positions.
+    </div>`;
+  }
+
+  // Simulated detection results
+  const threshold = state.cvConfidence;
+  const detections = [
+    { frame: 42, time: '4.20s', type: 'hostile_track', conf: 0.94, x: 312, y: 187, color: '#ff4444' },
+    { frame: 42, time: '4.20s', type: 'friendly_track', conf: 0.87, x: 198, y: 245, color: '#00cc66' },
+    { frame: 42, time: '4.20s', type: 'unknown_track', conf: 0.62, x: 401, y: 156, color: '#ffcc00' },
+    { frame: 42, time: '4.20s', type: 'neutral_track', conf: 0.41, x: 88, y: 302, color: '#00ccff' },
+    { frame: 85, time: '8.50s', type: 'hostile_track', conf: 0.91, x: 298, y: 201, color: '#ff4444' },
+    { frame: 85, time: '8.50s', type: 'hostile_track', conf: 0.78, x: 356, y: 178, color: '#ff4444' },
+    { frame: 85, time: '8.50s', type: 'friendly_track', conf: 0.85, x: 205, y: 240, color: '#00cc66' },
+    { frame: 128, time: '12.80s', type: 'hostile_track', conf: 0.96, x: 280, y: 195, color: '#ff4444' },
+    { frame: 128, time: '12.80s', type: 'unknown_track', conf: 0.33, x: 420, y: 310, color: '#ffcc00' },
+  ].filter(d => d.conf >= threshold);
+
+  html += `<div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">DETECTIONS (above ${(threshold*100).toFixed(0)}%)</div>
+      <div class="stat-value">${detections.length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">HOSTILE</div>
+      <div class="stat-value fail-val">${detections.filter(d => d.type === 'hostile_track').length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">FRIENDLY</div>
+      <div class="stat-value">${detections.filter(d => d.type === 'friendly_track').length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">UNKNOWN / NEUTRAL</div>
+      <div class="stat-value warn-val">${detections.filter(d => d.type === 'unknown_track' || d.type === 'neutral_track').length}</div>
+    </div>
+  </div>`;
+
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">DETECTION RESULTS &mdash; ${state.cvBackend.toUpperCase()} BACKEND</div>`;
+  html += `<table class="data-table"><tr>
+    <th>FRAME</th><th>TIME</th><th>CLASS</th><th>CONF</th><th>POSITION (px)</th><th>STATUS</th>
+  </tr>`;
+  detections.forEach(d => {
+    const confCls = d.conf >= 0.7 ? 'pass' : d.conf >= 0.5 ? 'warn' : 'fail';
+    html += '<tr><td class="dim">' + d.frame + '</td>'
+      + '<td class="dim">' + d.time + '</td>'
+      + '<td style="color:' + d.color + '">' + d.type.replace('_', ' ').toUpperCase() + '</td>'
+      + '<td class="' + confCls + '">' + (d.conf * 100).toFixed(0) + '%</td>'
+      + '<td class="dim">(' + d.x + ', ' + d.y + ')</td>'
+      + '<td><span class="req-status pass">ACCEPT</span></td></tr>';
+  });
+  html += `</table>`;
+
+  // OCR results
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">OCR TEXT READINGS (NOTIONAL)</div>`;
+  html += `<table class="data-table"><tr>
+    <th>ROI</th><th>TEXT</th><th>CONFIDENCE</th><th>FRAME</th>
+  </tr>
+    <tr><td class="decoded">ALT readout</td><td style="color:var(--green-bright)">15420</td><td class="pass">94%</td><td class="dim">42</td></tr>
+    <tr><td class="decoded">RANGE readout</td><td style="color:var(--green-bright)">24.3</td><td class="pass">91%</td><td class="dim">42</td></tr>
+    <tr><td class="decoded">MODE label</td><td style="color:var(--green-bright)">CRM</td><td class="pass">88%</td><td class="dim">42</td></tr>
+    <tr><td class="decoded">SPEED readout</td><td style="color:var(--green-bright)">412</td><td class="warn">67%</td><td class="dim">85</td></tr>
+  </table>`;
+
+  return html;
+}
+
+function renderCVTrackBridge() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += `<div class="info-box">
+      <div class="info-title">TRACK BRIDGE: 1553 TO CV CORRELATION</div>
+      The <code>TrackBridge</code> (<code>src/cv/track_bridge.py</code>) converts ICD-decoded 1553 radar/display
+      track data into <code>ExpectedTrack</code> objects for CV position verification. It queries the
+      <code>MessageStore</code> for target range, azimuth, and hostility time series, then maps each timestamp
+      to a video frame number.
+      <br><br>
+      The <code>PositionVerifier</code> compares expected track positions (from 1553 data) against
+      detected symbol positions (from CV analysis), producing a per-frame correlation score.
+      This enables cross-domain verification: does the MFD display actually show what the bus data says?
+      <br><br>
+      <strong>Key fields:</strong> <code>target_range_nm</code> (radial distance),
+      <code>target_bearing_deg</code> (angular position), <code>hostility</code> (expected symbol type/color).
+      Range scale from mission config determines which tracks are in the MFD field of view.
+    </div>`;
+  }
+
+  // Track bridge flow diagram
+  html += `<div class="flow-explanation">
+    <div class="flow-box active">
+      <div class="flow-title">1553 DECODED</div>
+      <div class="flow-detail">
+        MessageStore query<br>
+        target_range_nm<br>
+        target_bearing_deg<br>
+        hostility field
+      </div>
+    </div>
+    <div class="flow-connector">\u25B6</div>
+    <div class="flow-box active">
+      <div class="flow-title">TRACK BRIDGE</div>
+      <div class="flow-detail">
+        Timestamp to frame map<br>
+        Range/azimuth to pixel<br>
+        Range scale filtering<br>
+        ExpectedTrack objects
+      </div>
+    </div>
+    <div class="flow-connector">\u25B6</div>
+    <div class="flow-box active">
+      <div class="flow-title">POSITION VERIFY</div>
+      <div class="flow-detail">
+        Expected vs detected<br>
+        Tolerance: 30px default<br>
+        Per-frame match score<br>
+        Missing/extra tracks
+      </div>
+    </div>
+    <div class="flow-connector">\u25B6</div>
+    <div class="flow-box">
+      <div class="flow-title">CV REPORT</div>
+      <div class="flow-detail">
+        EvaluationReport<br>
+        Pass/fail per frame<br>
+        Correlation statistics<br>
+        Stored in PipelineResult
+      </div>
+    </div>
+  </div>`;
+
+  // Simulated track correlation table
+  html += `<div class="ctrl-label" style="margin:16px 0 8px">TRACK CORRELATION &mdash; FRAME 42 (NOTIONAL)</div>`;
+  html += `<table class="data-table"><tr>
+    <th>TRACK</th><th>1553 RANGE</th><th>1553 BEARING</th><th>EXPECTED (px)</th><th>DETECTED (px)</th><th>ERROR</th><th>STATUS</th>
+  </tr>
+    <tr>
+      <td style="color:#ff4444">Hostile #1</td>
+      <td>24.3 nm</td><td>015&deg;</td>
+      <td class="dim">(308, 190)</td><td class="dim">(312, 187)</td>
+      <td class="pass">5.0 px</td>
+      <td><span class="req-status pass">MATCH</span></td>
+    </tr>
+    <tr>
+      <td style="color:#00cc66">Friendly #1</td>
+      <td>18.7 nm</td><td>285&deg;</td>
+      <td class="dim">(195, 248)</td><td class="dim">(198, 245)</td>
+      <td class="pass">4.2 px</td>
+      <td><span class="req-status pass">MATCH</span></td>
+    </tr>
+    <tr>
+      <td style="color:#ffcc00">Unknown #1</td>
+      <td>31.2 nm</td><td>042&deg;</td>
+      <td class="dim">(398, 160)</td><td class="dim">(401, 156)</td>
+      <td class="pass">5.0 px</td>
+      <td><span class="req-status pass">MATCH</span></td>
+    </tr>
+    <tr>
+      <td style="color:#00ccff">Neutral #1</td>
+      <td>12.1 nm</td><td>220&deg;</td>
+      <td class="dim">(90, 300)</td><td class="dim">(88, 302)</td>
+      <td class="pass">2.8 px</td>
+      <td><span class="req-status pass">MATCH</span></td>
+    </tr>
+  </table>`;
+
+  // Correlation stats
+  html += `<div class="stats-grid" style="margin-top:16px">
+    <div class="stat-card">
+      <div class="stat-label">FRAMES ANALYZED</div>
+      <div class="stat-value">240</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TRACKS MATCHED</div>
+      <div class="stat-value">847</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TRACKS MISSING</div>
+      <div class="stat-value fail-val">12</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">EXTRA DETECTIONS</div>
+      <div class="stat-value warn-val">3</div>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+// ─── STAGE 8: VIDEO & VISUALIZATION ───
 function renderViz() {
   let html = '';
 
-  html += `<div class="content-title">STAGE 06: VIDEO & VISUALIZATION</div>`;
+  html += `<div class="content-title">STAGE 08: VIDEO & VISUALIZATION</div>`;
   html += `<div class="content-desc">
     The visualization layer provides synchronized video playback with HUD telemetry overlay,
     interactive parameter timelines with brush/zoom, and an annotation system for marking
@@ -2310,8 +3018,11 @@ function renderVizTimeline() {
       for quick parameter lookup. Up to 8 parameters can be displayed simultaneously with distinct
       dash patterns for visual separation.
       <br><br>
-      <strong>FTE presets:</strong> Flight Test Engineer-curated parameter groupings (e.g., "FLCS Surfaces",
-      "Air Data", "Radar Track") load recommended parameter sets with a single click.
+      <strong>FTE presets:</strong> Flight Test Engineer-curated parameter groupings (e.g., "Flight Envelope",
+      "FLCS Surfaces", "Radar Operations") load recommended parameter sets with a single click.
+      <strong>TC-specific presets</strong> are now available for all 6 demo test cases:
+      TC-01 AIM-9X, TC-02 DWAT, TC-03 Link 16, TC-04 JASSM, TC-05 TGP, TC-06 Radar Display.
+      Each TC preset selects the exact parameters relevant to that test case.
       Cross-page navigation from the Requirements or Anomalies pages jumps directly to the relevant
       timestamp with context parameters pre-loaded.
     </div>`;
@@ -2333,8 +3044,8 @@ function renderVizTimeline() {
         `).join('')}
         <div style="margin-top:8px;font-size:9px;color:var(--text-dim)">
           <div style="letter-spacing:1px;margin-bottom:4px">PRESETS</div>
-          ${['FLCS Surfaces','Air Data','Radar Track'].map(p => `
-            <div style="padding:3px 6px;margin-bottom:2px;background:var(--bg-hover);border:1px solid var(--border);cursor:pointer;font-size:9px;color:var(--text-dim)">${p}</div>
+          ${['Flight Envelope','Radar Ops','EW / Threat','Navigation','Weapons','FLCS Surfaces','TC-01: AIM-9X','TC-02: DWAT','TC-03: Link 16','TC-04: JASSM','TC-05: TGP','TC-06: Radar'].map(p => `
+            <div style="padding:3px 6px;margin-bottom:2px;background:var(--bg-hover);border:1px solid var(--border);cursor:pointer;font-size:9px;color:${p.startsWith('TC') ? 'var(--cyan)' : 'var(--text-dim)'}">${p}</div>
           `).join('')}
         </div>
       </div>
@@ -2364,7 +3075,7 @@ function renderVizTimeline() {
       <tr><th>FEATURE</th><th>DESCRIPTION</th></tr>
       <tr><td class="decoded">Parameter Sidebar</td><td>Collapsible panel with sparkline previews and subsystem grouping</td></tr>
       <tr><td class="decoded">Brush/Zoom</td><td>Click-drag to zoom; all charts and video stay synchronized</td></tr>
-      <tr><td class="decoded">FTE Presets</td><td>One-click parameter groupings curated for common analysis tasks</td></tr>
+      <tr><td class="decoded">FTE Presets</td><td>6 general presets + 6 TC-specific presets (AIM-9X, DWAT, Link 16, JASSM, TGP, Radar Display)</td></tr>
       <tr><td class="decoded">Annotation Mode</td><td>Toggle to place markers directly on the timeline</td></tr>
       <tr><td class="decoded">Data Cursor</td><td>Hover readout showing exact values at any timestamp</td></tr>
       <tr><td class="decoded">Cross-Page Nav</td><td>Jump from Requirements or Anomalies with timestamp + parameter context</td></tr>
@@ -2511,8 +3222,9 @@ function updatePrompt() {
 
   switch (state.stage) {
     case 'ingest':
-      parts.push(`\nFocus on .C10 ingestion: how MIL-STD-1553B bus traffic is captured, demuxed by RT/SA, and normalized.`);
+      parts.push(`\nFocus on .C10 + PCAP ingestion: how MIL-STD-1553B bus traffic and Ethernet PCAP data are captured, demuxed by RT/SA, and normalized into a unified MessageStore.`);
       parts.push(`This subsystem uses ${sub.messages.length} message types (${sub.messages.map(m => `SA ${m.sa}: ${m.label}`).join(', ')}).`);
+      parts.push(`PCAP files provide Ethernet traffic (Link 16, JASSM, TGP) mapped to virtual RT/SA via ICD virtual_rt_mapping. The pcap_time_aligned flag controls time synchronization.`);
       if (state.showDecoded) parts.push(`Show the decoded engineering-unit values alongside raw hex.`);
       break;
 
@@ -2525,12 +3237,25 @@ function updatePrompt() {
       }
       break;
 
+    case 'derived':
+      parts.push(`\nFocus on the Derived Field Computation layer (Stage 03).`);
+      parts.push(`The DerivedFieldEngine creates virtual parameters by combining decoded ICD fields before AS3 evaluation.`);
+      parts.push(`Definitions in data/derived_fields/demo_derived.json specify field_name, inputs, operator, and optional guard conditions.`);
+      parts.push(`Uses a safe operator dispatch table (add, subtract, multiply, divide, abs, sqrt, min, max, sin, cos, atan2) with no dynamic code.`);
+      parts.push(`Mission config (data/mission_config/demo_mission.json) provides sortie-specific constants injected into the evaluator.`);
+      break;
+
     case 'as3': {
       const p = sub.requirements.filter(r => r.status === 'pass').length;
       const f = sub.requirements.filter(r => r.status === 'fail').length;
       const w = sub.requirements.filter(r => r.status === 'warn').length;
       parts.push(`\nFocus on AS3 requirement evaluation: ${sub.requirements.length} requirements checked.`);
       parts.push(`Results: ${p} PASS, ${f} FAIL, ${w} WARNING.`);
+      if (sub.isTC) {
+        parts.push(`This is TC demo sortie ${sub.sortie}. Initial state: ${sub.initialState}`);
+        const ruleTypes = [...new Set(sub.requirements.map(r => r.ruleType).filter(Boolean))];
+        if (ruleTypes.length) parts.push(`Rule types exercised: ${ruleTypes.join(', ')}.`);
+      }
       if (f > 0) {
         const failures = sub.requirements.filter(r => r.status === 'fail');
         parts.push(`Failed requirements: ${failures.map(r => `${r.id} (${r.text} — actual: ${r.actual}, threshold: ${r.threshold})`).join('; ')}.`);
@@ -2577,6 +3302,22 @@ function updatePrompt() {
       if (state.anomalySensitivity !== DEFAULTS.anomalySensitivity) {
         parts.push(`Sensitivity adjusted from default ${(DEFAULTS.anomalySensitivity*100)}% to ${(state.anomalySensitivity*100).toFixed(0)}%.`);
       }
+      break;
+    }
+
+    case 'cv': {
+      parts.push(`\nFocus on the Computer Vision (CV) pipeline for MFD video analysis (Stage 07).`);
+      parts.push(`The CV pipeline analyzes extracted MFD video frames: frame extraction, preprocessing, symbol detection, OCR, position verification, and color classification.`);
+      parts.push(`Detection backend: ${state.cvBackend} (confidence threshold: ${(state.cvConfidence * 100).toFixed(0)}%).`);
+      if (state.cvBackend === 'yolo') {
+        parts.push(`YOLOv8-nano ONNX model — CPU-only inference via onnxruntime, air-gapped safe, optional SHA-256 model hash verification.`);
+      } else {
+        parts.push(`Template-based NCC matching — lightweight, no model files, multi-scale correlation with NMS.`);
+      }
+      if (state.cvView === 'trackbridge') {
+        parts.push(`Track Bridge: converts ICD-decoded 1553 radar tracks to ExpectedTrack objects for cross-domain verification against CV detections.`);
+      }
+      parts.push(`Symbol classes: hostile_track, friendly_track, unknown_track, neutral_track. Output stored as cv_eval_report in PipelineResult.`);
       break;
     }
 
