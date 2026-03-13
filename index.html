@@ -1310,7 +1310,7 @@ const state = {
   cvView: 'overview',    // 'overview' | 'detections' | 'trackbridge'
   cvBackend: 'template', // 'template' | 'yolo'
   cvConfidence: 0.50,    // detection confidence threshold
-  vizView: 'video',      // 'video' | 'timeline' | 'annotations'
+  vizView: 'video',      // 'video' | 'timeline' | 'annotations' | 'replay'
 };
 
 const DEFAULTS = { ...state };
@@ -1511,6 +1511,10 @@ function renderSidebar() {
         TIMELINE
         <span class="btn-sub">Parameter plots + brush/zoom</span>
       </button>
+      <button class="ctrl-btn ${state.vizView === 'replay' ? 'active' : ''}" onclick="setState('vizView','replay')">
+        FLIGHT REPLAY
+        <span class="btn-sub">Synchronized video + chart playhead</span>
+      </button>
       <button class="ctrl-btn ${state.vizView === 'annotations' ? 'active' : ''}" onclick="setState('vizView','annotations')">
         ANNOTATIONS
         <span class="btn-sub">Flight markers + categories</span>
@@ -1557,6 +1561,7 @@ function renderSidebar() {
       <button class="preset-btn" onclick="applyPreset('anomaly')">ANOMALY</button>
       <button class="preset-btn" onclick="applyPreset('cvpipeline')">CV / MFD</button>
       <button class="preset-btn" onclick="applyPreset('viz')">VIDEO/VIZ</button>
+      <button class="preset-btn" onclick="applyPreset('replay')">REPLAY</button>
     </div>
   </div>`;
 
@@ -1595,6 +1600,9 @@ function applyPreset(name) {
       break;
     case 'viz':
       state.stage = 'viz'; state.vizView = 'video'; state.showExplanations = true;
+      break;
+    case 'replay':
+      state.stage = 'viz'; state.vizView = 'replay'; state.showExplanations = true;
       break;
   }
   updateAll();
@@ -1764,6 +1772,11 @@ function renderICD() {
       the data type (unsigned, signed, enum, discrete), the <code>LSB scaling factor</code>,
       and the engineering <code>unit</code>. Decoding follows:<br>
       <strong>Raw Hex → Binary → Bit Extraction → Integer Value → × LSB → Engineering Units</strong>
+      <br><br>
+      The loader auto-detects format from file extension: <code>.json</code> files use the JSON ICD schema,
+      while <code>.xml</code> and <code>.txt</code> files are parsed by the <code>XmlIcdLoader</code>,
+      which handles MIL-STD-1553 addresses, Ethernet messages, multiplexed (MUX) messages,
+      User-Defined Types (UDT), and enumeration ranges.
     </div>`;
   }
 
@@ -2320,6 +2333,12 @@ function renderAIML() {
       <strong>Cluster detection:</strong> A post-processing pass groups related anomalies (3+
       of the same type within 5 seconds) into clusters, helping engineers distinguish isolated
       events from systemic issues. Clusters are surfaced as callouts in the Anomalies dashboard.
+      <br><br>
+      <strong>ML Sensitivity Presets:</strong> Administrators can configure named sensitivity presets
+      (e.g., Conservative, Standard, Aggressive) via the Admin &rarr; ML Sensitivity tab. Each preset
+      defines contamination parameter bounds for the Isolation Forest. Analysts select a preset on
+      the Landing page before pipeline execution &mdash; the selected preset's bounds override the
+      default contamination parameter.
     </div>`;
   }
 
@@ -2911,6 +2930,8 @@ function renderViz() {
 
   if (state.vizView === 'video') {
     html += renderVizVideo();
+  } else if (state.vizView === 'replay') {
+    html += renderVizReplay();
   } else if (state.vizView === 'timeline') {
     html += renderVizTimeline();
   } else {
@@ -2935,6 +2956,9 @@ function renderVizVideo() {
       altitude, airspeed, heading, Mach number, G-loading, and AOA. Values update via zero-order-hold
       from the nearest 1553 sample. The overlay uses a green-on-dark theme matching cockpit displays,
       toggled with the <code>H</code> key.
+      <br><br>
+      For full synchronized replay with transport controls, auto-pause at events, and chart playhead
+      overlay, use the <strong>Flight Replay</strong> view.
     </div>`;
   }
 
@@ -2998,6 +3022,138 @@ function renderVizVideo() {
       <tr><td>Size</td><td class="dim">48.2 MB</td></tr>
     </table>
   </div>`;
+
+  return html;
+}
+
+function renderVizReplay() {
+  let html = '';
+
+  if (state.showExplanations) {
+    html += '<div class="info-box">'
+      + '<div class="info-title">FLIGHT REPLAY MODE</div>'
+      + 'Flight Replay provides synchronized playback of video and bus data with a unified transport bar. '
+      + 'The <code>useReplayController</code> hook manages a state machine (STOPPED &rarr; PLAYING &#8644; PAUSED, SCRUBBING) '
+      + 'with a requestAnimationFrame sync loop that drives a smooth playhead across all views.'
+      + '<br><br>'
+      + '<strong>Two-tier update architecture:</strong> During playback, the transport bar and chart playhead '
+      + 'overlay update at 60fps via direct DOM manipulation (refs + <code>requestAnimationFrame</code>), '
+      + 'completely bypassing React\'s render cycle. Chart data (Recharts) only re-renders on pause/stop/seek, '
+      + 'preventing expensive SVG re-renders from blocking the main thread.'
+      + '<br><br>'
+      + '<strong>Pre-video timer fallback:</strong> When bus data starts at T=0s but video recording begins '
+      + 'at T&asymp;30s, the controller uses a timer-based clock for the pre-video portion, then seamlessly hands off '
+      + 'to video-as-master when the playhead reaches video coverage. This prevents the playhead from jumping '
+      + 'past the initial bus-data-only segment.'
+      + '<br><br>'
+      + '<strong>Auto-pause:</strong> The controller maintains a sorted event cursor and fires auto-pause when '
+      + 'the playhead crosses a violation or anomaly event, showing an inline dismissal card. Events can be '
+      + 'navigated with prev/next skip buttons.'
+      + '</div>';
+  }
+
+  // Transport bar simulation
+  var transportIcons = ['&#9198;','&#9194;','&#9654;','&#9193;','&#9197;','&#9209;'];
+  var speedRates = [0.25, 0.5, 1, 2, 4];
+  var eventPcts = [15, 28, 35, 52, 67, 78];
+
+  html += '<div style="margin:16px 0">'
+    + '<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">TRANSPORT BAR</div>'
+    + '<div style="background:var(--bg-surface);border:1px solid var(--border);padding:10px">'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    + '<div style="display:flex;gap:4px">';
+
+  transportIcons.forEach(function(icon) {
+    html += '<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--bg-hover);border:1px solid var(--border);font-size:10px;cursor:pointer">' + icon + '</div>';
+  });
+
+  html += '</div>'
+    + '<div style="font-family:var(--font-mono);font-size:12px;color:var(--green-bright);letter-spacing:1px">T+00:01:42.380</div>'
+    + '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim)">UTC 14:23:42.380Z</div>'
+    + '<div style="margin-left:auto;display:flex;gap:4px;align-items:center">'
+    + '<span style="font-size:9px;color:var(--text-dim)">SPEED</span>';
+
+  speedRates.forEach(function(r) {
+    var isActive = r === 1;
+    html += '<div style="padding:2px 6px;font-size:9px;'
+      + 'background:' + (isActive ? 'var(--green-faint)' : 'var(--bg-hover)') + ';'
+      + 'border:1px solid ' + (isActive ? 'var(--green-dim)' : 'var(--border)') + ';'
+      + 'color:' + (isActive ? 'var(--green-bright)' : 'var(--text-dim)') + ';'
+      + 'cursor:pointer">' + r + 'x</div>';
+  });
+
+  html += '</div></div>'
+    + '<div style="position:relative;height:12px;background:var(--bg-hover);border-radius:6px;overflow:hidden">'
+    + '<div style="position:absolute;top:0;left:0;height:100%;width:42%;background:linear-gradient(90deg,var(--green-dim),var(--green-mid));border-radius:6px"></div>'
+    + '<div style="position:absolute;top:0;left:42%;width:4px;height:100%;background:var(--green-bright);border-radius:2px;box-shadow:0 0 4px var(--green-bright)"></div>';
+
+  eventPcts.forEach(function(pct) {
+    html += '<div style="position:absolute;top:0;left:' + pct + '%;width:3px;height:100%;background:var(--red);opacity:0.6;border-radius:1px" title="Event marker"></div>';
+  });
+
+  html += '</div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text-dim);margin-top:4px">'
+    + '<span>00:00:00</span>'
+    + '<span>Duration: 04:00.3</span>'
+    + '<span>04:00.3</span>'
+    + '</div></div></div>';
+
+  // State machine
+  var smStates = [
+    { state: 'STOPPED', color: 'var(--text-dim)' },
+    { state: 'PLAYING', color: 'var(--green-bright)' },
+    { state: 'PAUSED', color: 'var(--amber)' },
+    { state: 'SCRUBBING', color: 'var(--cyan)' }
+  ];
+
+  html += '<div style="margin:16px 0">'
+    + '<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">REPLAY STATE MACHINE</div>'
+    + '<div style="background:var(--bg-surface);border:1px solid var(--border);padding:12px;font-size:11px">'
+    + '<div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-bottom:12px">';
+
+  smStates.forEach(function(s, i) {
+    html += '<div style="text-align:center">'
+      + '<div style="width:80px;padding:6px;border:1px solid ' + s.color + ';color:' + s.color + ';font-size:9px;letter-spacing:1px">' + s.state + '</div>'
+      + '</div>';
+    if (i < 3) {
+      html += '<div style="color:var(--text-dim);font-size:14px">&rarr;</div>';
+    }
+  });
+
+  html += '</div>'
+    + '<div style="font-size:9px;color:var(--text-dim);text-align:center">'
+    + 'STOPPED &rarr; play() &rarr; PLAYING &#8644; pause() &#8644; PAUSED &middot; scrubStart() &rarr; SCRUBBING &rarr; scrubEnd() &rarr; prior mode'
+    + '</div></div></div>';
+
+  // Performance architecture
+  html += '<div style="margin:16px 0">'
+    + '<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">PERFORMANCE ARCHITECTURE</div>'
+    + '<table class="data-table">'
+    + '<tr><th>LAYER</th><th>UPDATE FREQUENCY</th><th>MECHANISM</th></tr>'
+    + '<tr><td class="decoded">Transport Bar</td><td style="color:var(--green-bright)">60 fps</td><td>rAF &rarr; ref &rarr; direct DOM (textContent, style.width)</td></tr>'
+    + '<tr><td class="decoded">Chart Playhead</td><td style="color:var(--green-bright)">60 fps</td><td>CSS overlay div positioned via rAF, not Recharts ReferenceLine</td></tr>'
+    + '<tr><td class="decoded">Video Element</td><td style="color:var(--cyan)">30 fps</td><td>Browser media thread (independent of JS main thread)</td></tr>'
+    + '<tr><td class="decoded">Chart Data</td><td style="color:var(--amber)">On pause/seek</td><td>React setState &rarr; Recharts SVG re-render (expensive, deferred)</td></tr>'
+    + '<tr><td class="decoded">Data Strip</td><td style="color:var(--amber)">On pause/seek</td><td>overrideTime prop from playheadTimeRef</td></tr>'
+    + '</table></div>';
+
+  // Keyboard shortcuts
+  html += '<div style="margin:16px 0">'
+    + '<div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:1px">REPLAY KEYBOARD SHORTCUTS</div>'
+    + '<table class="data-table">'
+    + '<tr><th>KEY</th><th>ACTION</th><th>DESCRIPTION</th></tr>'
+    + '<tr><td><code>Space</code></td><td>Play / Pause</td><td>Toggle replay playback</td></tr>'
+    + '<tr><td><code>Escape</code></td><td>Stop</td><td>Stop replay and reset to beginning</td></tr>'
+    + '<tr><td><code>[</code> / <code>]</code></td><td>Speed</td><td>Decrease / increase playback rate</td></tr>'
+    + '<tr><td><code>&larr;</code> / <code>&rarr;</code></td><td>Skip &plusmn;5s</td><td>Seek backward/forward 5 seconds</td></tr>'
+    + '<tr><td><code>&#8679;&larr;</code> / <code>&#8679;&rarr;</code></td><td>Skip &plusmn;30s</td><td>Seek backward/forward 30 seconds</td></tr>'
+    + '<tr><td><code>,</code> / <code>.</code></td><td>Prev/Next Event</td><td>Jump to previous/next violation or anomaly</td></tr>'
+    + '<tr><td><code>M</code></td><td>Mark</td><td>Quick-annotate at playhead position</td></tr>'
+    + '<tr><td><code>H</code></td><td>HUD Overlay</td><td>Toggle telemetry overlay on video</td></tr>'
+    + '<tr><td><code>A</code></td><td>Auto-pause</td><td>Toggle auto-pause at events</td></tr>'
+    + '<tr><td><code>I</code> / <code>O</code></td><td>Loop In/Out</td><td>Set loop region start/end</td></tr>'
+    + '<tr><td><code>L</code></td><td>Toggle Loop</td><td>Enable/disable loop playback</td></tr>'
+    + '</table></div>';
 
   return html;
 }
@@ -3080,6 +3236,7 @@ function renderVizTimeline() {
       <tr><td class="decoded">Data Cursor</td><td>Hover readout showing exact values at any timestamp</td></tr>
       <tr><td class="decoded">Cross-Page Nav</td><td>Jump from Requirements or Anomalies with timestamp + parameter context</td></tr>
       <tr><td class="decoded">Video Panel</td><td>Floating video docked to timeline with bidirectional time sync</td></tr>
+      <tr><td class="decoded">Replay Playhead</td><td>Smooth CSS overlay line tracks playhead position at 60fps during Flight Replay mode</td></tr>
     </table>
   </div>`;
 
@@ -3327,6 +3484,11 @@ function updatePrompt() {
         parts.push(`Video pipeline: Chapter 10 Type 0xF0 packets are extracted per channel, re-encoded from MPEG-2 to H.264 for browser playback.`);
         parts.push(`HUD overlay renders altitude, airspeed, heading, Mach, G-loading, and AOA using zero-order-hold from nearest 1553 sample.`);
         parts.push(`Frame-step controls (comma/period keys), playback speed selection, and M-key quick-mark annotation.`);
+      } else if (state.vizView === 'replay') {
+        parts.push(`Flight Replay mode provides synchronized video + bus-data playback with a unified transport bar.`);
+        parts.push(`Uses a two-tier update architecture: 60fps rAF loop for transport bar and chart playhead (direct DOM), deferred React state for chart data (on pause/seek).`);
+        parts.push(`Pre-video timer fallback handles bus data starting before video recording. Auto-pause fires at violations/anomalies.`);
+        parts.push(`Loop regions, variable speed (0.1x–8x), and keyboard shortcuts for efficient review.`);
       } else if (state.vizView === 'timeline') {
         parts.push(`Timeline page features: parameter sidebar with sparkline previews, synchronized brush/zoom across all charts and video.`);
         parts.push(`FTE presets provide curated parameter groupings. Cross-page navigation jumps from Requirements/Anomalies with context.`);
