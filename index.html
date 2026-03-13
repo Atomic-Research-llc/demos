@@ -123,23 +123,27 @@
   #pipeline-flow {
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border);
-    padding: 14px 20px;
+    padding: 10px 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
   .pipeline-stage {
     display: flex;
     align-items: center;
     gap: 0;
     cursor: pointer;
+    flex-shrink: 0;
   }
   .pipeline-node {
-    padding: 8px 18px;
+    padding: 6px 12px;
     border: 1px solid var(--border);
     background: var(--bg-surface);
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 1px;
     color: var(--text-dim);
     transition: all 0.2s;
@@ -166,8 +170,8 @@
   .pipeline-node.active .stage-num { color: var(--green-mid); }
   .pipeline-arrow {
     color: var(--green-dim);
-    font-size: 18px;
-    padding: 0 6px;
+    font-size: 14px;
+    padding: 0 3px;
     user-select: none;
   }
   .pipeline-arrow.active { color: var(--green-bright); text-shadow: 0 0 6px rgba(0,255,65,0.4); }
